@@ -2,16 +2,22 @@ import React, { useState, useEffect } from "react";
 // 1. [수정] useLocation, useNavigate, useParams 모두 사용
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import TopHeader from "../../components/layout/TopHeader";
-import "./PhotoReviewsPage.css"; 
-import ReturnToSearch from '../../components/layout/ReturnToSearch';
+import "./PhotoReviewsPage.css";
+import ReturnToSearch from "../../components/layout/ReturnToSearch";
 import adrec from "../../assets/ReviewPage/adverrec.svg";
+
+// 🚀 [수정 1] apiFetch를 import 합니다. (경로는 실제 위치에 맞게 조정하세요)
+import apiFetch from "../../api.js";
+
 // 2. [신규] API 설정
-const API_URL = import.meta.env.VITE_APP_BACKEND_URL;
+// 🚀 [수정 2] apiFetch가 URL을 관리하므로 이 변수는 더 이상 필요하지 않습니다.
+// const API_URL = import.meta.env.VITE_APP_BACKEND_URL;
 const BACKEND_ON = true; // 🚨 true로 바꾸면 실제 API 호출
 const PAGE_SIZE = 24; // 한 번에 24개씩 불러오기 (API 명세 예시)
 
 // 3. [신규] Mock 데이터 (새 API 스펙에 맞게)
 const MOCK_PHOTO_LIST = {
+  // ... (MOCK_PHOTO_LIST 내용은 동일)
   "success": true, "code": 200, "message": "포토 리뷰 목록 조회 성공",
   "data": {
     "content": [
@@ -33,16 +39,16 @@ const MOCK_PHOTO_LIST = {
 export default function PhotoReviewsPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // 5. [수정] toiletId는 URL 파라미터에서, toilet 정보는 state에서 가져옴
-  const { toiletId } = useParams(); 
+  const { toiletId } = useParams();
   const { toilet } = location.state || {}; // 헤더 표시에 필요
 
   // 6. [수정] State: API 응답을 저장할 state들
   const [photos, setPhotos] = useState([]); // API 응답의 'content' 배열
   const [isLoading, setIsLoading] = useState(false); // 로딩 상태
   const [error, setError] = useState(null);
-  
+
   // 7. [수정] 페이지네이션 State (무한 스크롤용)
   const [nextCursor, setNextCursor] = useState(null);
   const [hasNext, setHasNext] = useState(true);
@@ -57,11 +63,17 @@ export default function PhotoReviewsPage() {
 
     // (1) Mock 모드 (BACKEND_ON = false)
     if (!BACKEND_ON) {
-      console.log(`[Mock] Fetching photos... initial: ${isInitialLoad}, cursor: ${nextCursor}`);
+      console.log(
+        `[Mock] Fetching photos... initial: ${isInitialLoad}, cursor: ${nextCursor}`
+      );
       // 0.5초 딜레이
       setTimeout(() => {
         // Mock 데이터의 content를 기존 photos 배열에 추가
-        setPhotos(prev => isInitialLoad ? MOCK_PHOTO_LIST.data.content : [...prev, ...MOCK_PHOTO_LIST.data.content]);
+        setPhotos((prev) =>
+          isInitialLoad
+            ? MOCK_PHOTO_LIST.data.content
+            : [...prev, ...MOCK_PHOTO_LIST.data.content]
+        );
         setNextCursor(MOCK_PHOTO_LIST.data.nextCursor);
         setHasNext(MOCK_PHOTO_LIST.data.hasNext);
         setIsLoading(false);
@@ -70,27 +82,22 @@ export default function PhotoReviewsPage() {
     }
 
     // (2) 실제 API 모드 (BACKEND_ON = true)
-    const accessToken = localStorage.getItem("accessToken");
-    if (!accessToken) {
-      setError("로그인이 필요합니다.");
-      setIsLoading(false);
-      return;
-    }
-    
+    // 🚀 [수정 3] accessToken을 직접 가져오는 로직 (getItem, if문) 삭제
+    // apiFetch가 토큰을 자동으로 처리합니다.
+
     // 9. [수정] API 엔드포인트 구성 (커서 포함)
-    let url = `${API_URL}/toilet/${toiletId}/photos?size=${PAGE_SIZE}`;
+    // 🚀 [수정 4] URL에서 API_URL 부분을 제거하고 경로만 남깁니다.
+    let urlPath = `/toilet/${toiletId}/photos?size=${PAGE_SIZE}`;
     if (!isInitialLoad && nextCursor) {
       // 첫 로드가 아닐 때만 커서 추가
-      url += `&nextCursor=${encodeURIComponent(nextCursor)}`;
+      urlPath += `&nextCursor=${encodeURIComponent(nextCursor)}`;
     }
 
     try {
-      const response = await fetch(url, {
+      // 🚀 [수정 5] fetch -> apiFetch, URL 경로만 전달, headers 객체 삭제
+      const response = await apiFetch(urlPath, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        // headers: 객체 불필요
       });
 
       const result = await response.json();
@@ -100,21 +107,24 @@ export default function PhotoReviewsPage() {
 
       if (result.success && result.data) {
         // 10. [수정] 기존 배열에 새 데이터를 덧붙임
-        setPhotos(prev => isInitialLoad ? result.data.content : [...prev, ...result.data.content]);
+        setPhotos((prev) =>
+          isInitialLoad
+            ? result.data.content
+            : [...prev, ...result.data.content]
+        );
         setNextCursor(result.data.nextCursor);
         setHasNext(result.data.hasNext);
       } else {
         throw new Error(result.message || "데이터 형식이 올바르지 않습니다.");
       }
-
     } catch (err) {
       console.error(err);
+      // 🚀 [수정] apiFetch가 던진 401(로그인) 에러 메시지도 여기서 처리됩니다.
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
-
 
   // 11. [수정] 첫 마운트 시 데이터 호출
   useEffect(() => {
@@ -124,12 +134,12 @@ export default function PhotoReviewsPage() {
       navigate(-1);
       return;
     }
-    
-    // 첫 데이터 로드
-    fetchPhotos(true); 
-    
-  }, [toilet, toiletId, navigate]); // 의존성 배열
 
+    // 첫 데이터 로드
+    fetchPhotos(true);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toilet, toiletId, navigate]); // 의존성 배열 (fetchPhotos는 useCallback이 아니므로 넣지 않음)
 
   // 로딩 UI (데이터 없을 때)
   if (!toilet) {
@@ -149,7 +159,6 @@ export default function PhotoReviewsPage() {
       <TopHeader />
       <ReturnToSearch />
       <div className="photo-reviews-container">
-        
         {/* 헤더 (toilet state 사용) */}
         <div className="photo-reviews-header">
           <div className="photo-reviews-header-info">
@@ -158,9 +167,13 @@ export default function PhotoReviewsPage() {
               {toilet.line}호선
               <span className="er-review-info-divider">·</span>
               {toilet.gender === "FEMALE" || toilet.gender === "F" ? (
-                <span className="fe" style={{ color: "#E13A6E" }}>여자</span>
+                <span className="fe" style={{ color: "#E13A6E" }}>
+                  여자
+                </span>
               ) : (
-                <span className="ma" style={{ color: "#0D6EFD" }}>남자</span>
+                <span className="ma" style={{ color: "#0D6EFD" }}>
+                  남자
+                </span>
               )}
             </p>
           </div>
@@ -168,29 +181,29 @@ export default function PhotoReviewsPage() {
           <span className="photo-review-count">포토리뷰 ({photos.length})</span>
         </div>
         {/* 🚨 [신규] 광고 이미지 추가 */}
-      <div className="prdp-ad-container">
-        <img src={adrec} alt="광고" className="prdp-ad-image" />
-      </div>
+        <div className="prdp-ad-container">
+          <img src={adrec} alt="광고" className="prdp-ad-image" />
+        </div>
 
         {/* 13. [수정] 필터 제거 (API가 정렬을 지원하지 않음) */}
         {/* <div className="review-filters"> ... </div> */}
 
-         <div className="photo-grid-list">
+        <div className="photo-grid-list">
           {/* 🚨 [수정] .map()에 index 추가 */}
           {photos.map((photo, index) => (
             <button
               // 15. [수정] photoId가 reviewId보다 고유하므로 key로 사용
               // 🚨 [수정] key가 중복되지 않도록 index를 조합
-              key={`${photo.photoId}-${index}`} 
-              className="photo-grid-item" 
-              onClick={() => 
+              key={`${photo.photoId}-${index}`}
+              className="photo-grid-item"
+              onClick={() =>
                 // 16. [수정] PhotoReviewDetailPage로 reviewId를 전달
                 // 🚨 [수정] 새 라우트와 파라미터에 맞게 navigate 호출을 변경합니다.
-                navigate(`/toilet/${photo.toiletId}/photo/${photo.photoId}`, { 
-                  state: { 
+                navigate(`/toilet/${photo.toiletId}/photo/${photo.photoId}`, {
+                  state: {
                     // reviewId: photo.reviewId, // (이제 URL에 없으므로 state로 전달)
-                    toilet: toilet // 헤더 표시에 필요한 toilet 정보
-                  } 
+                    toilet: toilet, // 헤더 표시에 필요한 toilet 정보
+                  },
                 })
               }
             >
@@ -204,11 +217,11 @@ export default function PhotoReviewsPage() {
         {/* 18. [수정] 페이지네이션 UI를 "더보기" 버튼으로 변경 */}
         <div className="pagination">
           {isLoading && <p>불러오는 중...</p>}
-          
-          {error && <p style={{color: 'red'}}>{error}</p>}
-          
+
+          {error && <p style={{ color: "red" }}>{error}</p>}
+
           {!isLoading && hasNext && (
-            <button 
+            <button
               className="review-more-button" // '리뷰 더보기'와 동일한 스타일 사용
               onClick={() => fetchPhotos(false)} // '더보기' 클릭
             >
@@ -217,15 +230,21 @@ export default function PhotoReviewsPage() {
           )}
 
           {!isLoading && !hasNext && photos.length > 0 && (
-             <p style={{textAlign: 'center', padding: '20px', color: '#888'}}>
-               마지막 사진입니다.
-             </p>
+            <p
+              style={{
+                textAlign: "center",
+                padding: "20px",
+                color: "#888",
+              }}
+            >
+              마지막 사진입니다.
+            </p>
           )}
-          
+
           {!isLoading && !hasNext && photos.length === 0 && (
-             <p style={{textAlign: 'center', padding: '20px'}}>
-               포토 리뷰가 없습니다.
-             </p>
+            <p style={{ textAlign: "center", padding: "20px" }}>
+              포토 리뷰가 없습니다.
+            </p>
           )}
         </div>
       </div>

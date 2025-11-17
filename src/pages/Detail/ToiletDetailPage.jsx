@@ -12,6 +12,9 @@ import toiletimg from '../../assets/ReviewPage/toilet-img.svg';
 import rightsqure from '../../assets/ReviewPage/right-square-filled.svg';
 import ReturnToSearch from '../../components/layout/ReturnToSearch';
 
+// 🚀 [수정 1] apiFetch를 import 합니다. (경로는 실제 위치에 맞게 조정하세요)
+import apiFetch from "../../api.js";
+
 // 1. 화장실 상세 정보 (새 더미데이터)
 const MOCK_TOILET_DETAIL = {
   "success": true,
@@ -214,7 +217,8 @@ function ToiletDetailPage() {
   const { toiletId } = useParams();
 
   // 4. API 설정
-  const API_URL = import.meta.env.VITE_APP_BACKEND_URL;
+  // 🚀 [수정 2] apiFetch가 URL을 관리하므로 이 변수는 더 이상 필요하지 않습니다.
+  // const API_URL = import.meta.env.VITE_APP_BACKEND_URL;
   const BACKEND_ON = true; // 🚨 true로 바꾸면 실제 API 호출
 
   // 5. State 설정
@@ -247,12 +251,8 @@ function ToiletDetailPage() {
     }
 
     // (2) BACKEND_ON이 true일 때 (실제 API)
-    const accessToken = localStorage.getItem("accessToken");
-    if (!accessToken) {
-      setSummaryError("AI 요약을 보려면 로그인이 필요합니다.");
-      setIsSummaryLoading(false);
-      return;
-    }
+    // 🚀 [수정 3] accessToken을 직접 가져오는 로직 (getItem, if문) 삭제
+    // apiFetch가 토큰을 자동으로 처리합니다.
 
     try {
       // 🚨 [수정] AI 요약 API도 toiletId 가드 필요
@@ -262,12 +262,10 @@ function ToiletDetailPage() {
         return;
       }
       
-      const response = await fetch(`${API_URL}/toilet/${toiletId}/reviews/summary`, {
+      // 🚀 [수정 4] fetch -> apiFetch, URL 경로만 전달, headers 객체 삭제
+      const response = await apiFetch(`/toilet/${toiletId}/reviews/summary`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        // headers: 객체 불필요
       });
 
       if (!response.ok) {
@@ -285,6 +283,7 @@ function ToiletDetailPage() {
 
     } catch (err) {
       console.error("AI Summary Error:", err.message);
+      // 🚀 [수정] apiFetch가 던진 401(로그인) 에러 메시지도 여기서 처리됩니다.
       setSummaryError(err.message);
     } finally {
       setIsSummaryLoading(false);
@@ -329,23 +328,16 @@ function ToiletDetailPage() {
     }
 
     // (2) BACKEND_ON이 true일 때 (실제 API)
-    const accessToken = localStorage.getItem("accessToken");
-    if (!accessToken) {
-      setError("로그인이 필요합니다. (더미 데이터로 대체합니다.)");
-      setToilet(MOCK_TOILET_DETAIL.data);
-      setReviews(MOCK_REVIEW_LIST.data.reviews.map(r => ({...r, photoUrl: r.photo || r.photoUrl})));
-      setIsLoading(false);
-      return;
-    }
+    // 🚀 [수정 5] accessToken을 직접 가져오는 로직 (getItem, if문) 삭제
+    // apiFetch가 토큰을 자동으로 처리합니다.
+    // 🚀 [수정] 토큰이 없을 때의 Fallback 로직은 catch 블록으로 이동/통합됩니다.
 
     try {
       // --- API 1: 화장실 상세 정보 (필수) ---
-      const detailResponse = await fetch(`${API_URL}/toilet/${toiletId}`, {
+      // 🚀 [수정 6] fetch -> apiFetch, URL 경로만 전달, headers 객체 삭제
+      const detailResponse = await apiFetch(`/toilet/${toiletId}`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        // headers: 객체 불필요
       });
       
       if (!detailResponse.ok) {
@@ -363,14 +355,12 @@ function ToiletDetailPage() {
 
       // --- API 2: 리뷰 목록 (선택적) ---
       try {
-        const reviewsResponse = await fetch(
-          `${API_URL}/toilet/${toiletId}/reviews?sort=${sortType}`, 
+        // 🚀 [수정 7] fetch -> apiFetch, URL 경로만 전달, headers 객체 삭제
+        const reviewsResponse = await apiFetch(
+          `/toilet/${toiletId}/reviews?sort=${sortType}`, 
           {
             method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
+            // headers: 객체 불필요
           }
         );
 
@@ -404,14 +394,15 @@ function ToiletDetailPage() {
 
     } catch (err) {
       // (화장실 상세 정보 로딩 실패 등 치명적 오류)
+      // 🚀 [수정] apiFetch가 401(로그인) 에러를 던지면 이 catch 블록이 실행됩니다.
       console.error("Fatal API Error:", err.message);
-      setError("데이터 로딩 중 오류가 발생했습니다. (더미 데이터로 대체합니다.)");
+      setError(`${err.message} (더미 데이터로 대체합니다.)`);
       setToilet(MOCK_TOILET_DETAIL.data);
       setReviews(MOCK_REVIEW_LIST.data.reviews.map(r => ({...r, photoUrl: r.photo || r.photoUrl})));
     } finally {
       setIsLoading(false);
     }
-  }, [toiletId, API_URL, BACKEND_ON, sortType]); // 12. useCallback의 의존성 배열
+  }, [toiletId, BACKEND_ON, sortType]); // 12. 🚀 [수정] API_URL 의존성 제거
 
 
   // 13. [신규] 컴포넌트 마운트 시 fetchData 호출
@@ -578,19 +569,19 @@ function ToiletDetailPage() {
                   </div>
                 ))}
               </div>
-          <div className="photo-more-container">
-            <button
-              className="photo-button-more"
-              onClick={() =>
-                nav(`/toilet/${toilet.id}/photos`, {
-                  state: { reviews: photoReviews, toilet: toilet },
-                })
-              }
-            >
-              포토리뷰 더보기
-            </button>
-          </div>
-          </>
+            <div className="photo-more-container">
+              <button
+                className="photo-button-more"
+                onClick={() =>
+                  nav(`/toilet/${toilet.id}/photos`, {
+                    state: { reviews: photoReviews, toilet: toilet },
+                  })
+                }
+              >
+                포토리뷰 더보기
+              </button>
+            </div>
+            </>
           )}
         </div>
 

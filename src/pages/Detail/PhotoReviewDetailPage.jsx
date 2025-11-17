@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 // 1. [신규] ReviewCard 컴포넌트 및 CSS 임포트
 import ReviewCard from "../../components/review/ReviewCard";
@@ -7,9 +7,12 @@ import '../../components/review/ReviewCard.css';
 import "./PhotoReviewDetailPage.css";
 import arrow from "../../assets/ReviewPage/arrow-left.svg";
 
+// 🚀 [수정 1] apiFetch를 import 합니다. (경로는 실제 위치에 맞게 조정하세요)
+import apiFetch from "../../api.js";
 
 // (Mock 데이터는 동일)
 const MOCK_PHOTO_DETAIL = {
+  // ... (MOCK_PHOTO_DETAIL 내용은 동일)
   "success": true, "code": 200, "message": "포토 리뷰 상세 조회 성공",
   "data": {
     "photoUrl": "https://placehold.co/600x400/E13A6E/white?text=Mock+Photo",
@@ -27,12 +30,13 @@ const MOCK_PHOTO_DETAIL = {
 // --- 메인 컴포넌트 ---
 
 export default function PhotoReviewDetailPage() {
-  const location = useLocation();
   const navigate = useNavigate();
   const { toiletId, photoId } = useParams();
-  const API_URL = import.meta.env.VITE_APP_BACKEND_URL;
+  
+  // 🚀 [수정 2] apiFetch가 URL을 관리하므로 이 변수는 더 이상 필요하지 않습니다.
+  // const API_URL = import.meta.env.VITE_APP_BACKEND_URL;
   const BACKEND_ON = true;
-  const { toilet } = location.state || {}; // 👈 헤더 이름 표시에 사용
+  
   const [photoData, setPhotoData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -71,20 +75,14 @@ export default function PhotoReviewDetailPage() {
       }
 
       // (2) 실제 API 모드
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        setError("로그인이 필요합니다.");
-        setIsLoading(false);
-        return;
-      }
+      // 🚀 [수정 3] accessToken을 직접 가져오는 로직 (getItem, if문) 삭제
+      // apiFetch가 토큰을 자동으로 처리합니다.
 
       try {
-        const response = await fetch(`${API_URL}/toilet/${toiletId}/photos/${photoId}`, {
+        // 🚀 [수정 4] fetch -> apiFetch, URL 경로만 전달, headers 객체 삭제
+        const response = await apiFetch(`/toilet/${toiletId}/photos/${photoId}`, {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
+          // headers: 객체 불필요
         });
 
         const result = await response.json();
@@ -108,6 +106,7 @@ export default function PhotoReviewDetailPage() {
 
       } catch (err) {
         console.error(err);
+        // 🚀 [수정 5] apiFetch가 던진 401(로그인) 에러 메시지도 여기서 처리됩니다.
         setError(err.message);
       } finally {
         setIsLoading(false);
@@ -116,7 +115,7 @@ export default function PhotoReviewDetailPage() {
 
     fetchData();
 
-  }, [toiletId, photoId, navigate, API_URL, BACKEND_ON]); // 🚨 'toilet' 의존성 제거
+  }, [toiletId, photoId, navigate, BACKEND_ON]); // 🚀 [수정 6] API_URL 의존성 제거
 
   // 5. 로딩 및 에러 UI
   if (isLoading || !photoData) {
@@ -152,7 +151,7 @@ export default function PhotoReviewDetailPage() {
           <button className="prdp-back-button" onClick={() => navigate(-1)}>
             <img src={arrow} alt="뒤로가기" />
           </button>
-     
+      
         </div>
 
         <p style={{ padding: "20px", textAlign: "center" }}>
@@ -191,6 +190,7 @@ export default function PhotoReviewDetailPage() {
         <ReviewCard
           reviews={[review]}
           toiletId={toiletId}
+          // showPhotos={false} // photoUrl이 ReviewCard prop에 없으므로 생략
         />
       </div>
     </div>
