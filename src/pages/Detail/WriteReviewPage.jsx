@@ -8,6 +8,7 @@ import star_grey from "../../assets/star/star-grey.svg";
 import "./WriteReviewPage.css"; // EditReview.css -> WriteReviewPage.css
 import ad from "../../assets/ReviewPage/Frame.svg";
 import AlertModal from "../../components/layout/AlertModal";
+import apiFetch from "../../api";
 // 🚀 [수정 1] apiFetch 임포트 (API 경로에 따라 필요 없을 수 있음)
 // api.js가 VITE_APP_BACKEND_URL을 사용하고,
 // 새 API가 /api/v1/을 사용하면, 이 파일에서는 fetch를 직접 써야 할 수도 있습니다.
@@ -271,10 +272,9 @@ export default function WriteReviewPage() {
 
     try {
       // --- API Call 1: Create Review (JSON) ---
-      const reviewResponse = await fetch(`${API_URL}/toilet/${toiletId}/reviews`, {
+      const reviewResponse = await apiFetch(`/toilet/${toiletId}/reviews`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify(reviewPayload),
@@ -302,8 +302,8 @@ export default function WriteReviewPage() {
           formData.append("photos", photo.file);
         });
 
-        const photoResponse = await fetch(
-          `${API_URL}/toilet/${createdReviewId}/photos`,
+        const photoResponse = await apiFetch(
+          `/toilet/${createdReviewId}/photos`,
           {
             method: "POST",
             headers: {
@@ -381,14 +381,18 @@ export default function WriteReviewPage() {
       );
       setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
       setIsStatusModalOpen(true);
-      // alert("이미지 검증을 위해 로그인이 필요합니다. 이전 페이지로 이동합니다.");
       setIsPollingImages(false);
-      // nav(-1);
       return;
     }
 
+    // 절대경로: `${API_URL}/api/v1/reviews/:id/image-status`
+    function makePollUrl(reviewId) {
+    //   const base = (API_URL || "").replace(/\/+$/, "");
+      return `/api/v1/reviews/${reviewId}/image-status`;
+    }
+
     let pollCount = 0;
-    const MAX_POLLS = 20; // 최대 20번 시도 (약 1분)
+    const MAX_POLLS = 100; // 최대 20번 시도 (약 1분)
     const POLLING_INTERVAL = 3000; // 3초마다 검사
 
     const intervalId = setInterval(async () => {
@@ -396,37 +400,45 @@ export default function WriteReviewPage() {
       console.log(`[Polling] Attempt ${pollCount}...`);
 
       try {
-        // --- API Call 3: Check Image Status ---
-        // 🚨 중요: API 명세가 /api/v1/로 시작합니다.
-        // 이것이 VITE_APP_BACKEND_URL에 포함되지 않는 별개 경로라면
-        // 이 fetch()는 그대로 두어야 합니다.
-        const response = await fetch(
-          `/api/v1/reviews/${pollingReviewId}/image-status`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
+        const pollUrl = makePollUrl(pollingReviewId);
+        const response = await apiFetch(pollUrl, {
+          method: "GET",
+          headers: {
+        
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
 
+        // 1) HTTP 상태 확인
+        if (response.status === 401 || response.status === 403) {
+          const text = await response.text().catch(() => "");
+          throw new Error("로그인이 필요하거나 권한이 없습니다.");
+        }
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          throw new Error(text || `이미지 상태 확인 실패: HTTP ${response.status}`);
+        }
+
+        // 2) Content-Type 확인 및 JSON 파싱
+        const ct = response.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) {
+          const text = await response.text().catch(() => "");
+          throw new Error(`예상치 못한 응답 타입(${ct}). 응답: ${text.slice(0, 200)}`);
+        }
         const result = await response.json();
 
-        if (!response.ok) {
-          throw new Error(
-            result.message || `이미지 상태 확인 실패: ${response.status}`
-          );
+        // 3) 응답 스키마에서 상태 배열 추출
+        const statuses = result?.data?.imageStatuses;
+
+        // 빈 배열/없음 → 아직 준비 안됨 → 계속 대기
+        if (!Array.isArray(statuses) || statuses.length === 0) {
+          if (pollCount > MAX_POLLS) {
+            throw new Error("이미지 상태 정보를 받지 못했습니다. (타임아웃)");
+          }
+          return;
         }
 
-        const statuses = result.data?.imageStatuses;
-        if (!statuses || statuses.length === 0) {
-          throw new Error("이미지 상태 정보를 받지 못했습니다.");
-        }
-
-        const isStillPending = statuses.some(
-          (img) => img.status === "PENDING"
-        );
+        const isStillPending = statuses.some((img) => img.status === "PENDING");
 
         if (isStillPending) {
           // --- 아직 검증 중 ---
@@ -436,47 +448,35 @@ export default function WriteReviewPage() {
               "이미지 검증 시간이 초과되었습니다. 관리자에게 문의하세요."
             );
           }
-        } else {
-          // --- 검증 완료 (모두 PENDING이 아님) ---
-          clearInterval(intervalId);
-          setIsPollingImages(false);
-
-          const rejectedCount = statuses.filter(
-            (img) => img.status === "REJECTED"
-          ).length;
-
-          // 🚀 [수정] alert -> modal
-          // 이미 "검사 중" 모달이 떠 있으므로, 메시지만 바꿔줍니다.
-          if (rejectedCount > 0) {
-            // 🚀 부적합
-            // 💡 \n이 모달에서 줄바꿈되려면 CSS에 white-space: pre-line; 필요
-            setStatusModalMessage(
-              "해당 이미지는\n등록 기준에 맞지 않습니다."
-            );
-            // alert(...)
-          } else {
-            // 🚀 적합
-            setStatusModalMessage("확인되었습니다.");
-            // alert(...)
-          }
-          setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
-          setIsStatusModalOpen(true); // 이미 열려있지만, 혹시 닫았을까봐 다시 호출
-          // nav(-1);
+          return; // 계속 대기
         }
+
+        // --- 검증 완료 (모두 PENDING이 아님) ---
+        clearInterval(intervalId);
+        setIsPollingImages(false);
+
+        const rejectedCount = statuses.filter(
+          (img) => img.status === "REJECTED"
+        ).length;
+
+        if (rejectedCount > 0) {
+          setStatusModalMessage("해당 이미지는\n등록 기준에 맞지 않습니다.");
+        } else {
+          setStatusModalMessage("확인되었습니다.");
+        }
+        setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
+        setIsStatusModalOpen(true); // 이미 열려있을 수도 있으나 안전하게 호출
       } catch (err) {
         // --- 폴링 중 에러 발생 ---
         console.error("[Polling] Error:", err);
         clearInterval(intervalId);
         setIsPollingImages(false);
 
-        // 🚀 [수정] alert -> modal
         setStatusModalMessage(
           `리뷰는 등록되었으나, 이미지 검증 중 오류가 발생했습니다: ${err.message}`
         );
         setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
         setIsStatusModalOpen(true);
-        // alert(...)
-        // nav(-1);
       }
     }, POLLING_INTERVAL);
 
@@ -485,7 +485,7 @@ export default function WriteReviewPage() {
       console.log("[Polling] Cleaning up interval.");
       clearInterval(intervalId);
     };
-  }, [isPollingImages, pollingReviewId, nav]);
+  }, [isPollingImages, pollingReviewId, nav, API_URL]);
   // --- 🚀 [수정 8] 끝 ---
 
   // (로딩 뷰는 기존과 동일)

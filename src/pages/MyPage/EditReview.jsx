@@ -1,3 +1,4 @@
+// src/pages/MyPage/EditReview.jsx
 import React, { useId, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import TopHeader from "../../components/layout/TopHeader";
@@ -69,24 +70,25 @@ export default function EditReview() {
 
   const initialReview = location.state?.review;
 
+  // 공용 모달 (상태/알림/제한 모두 이 모달 하나로 처리)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalCloseAction, setModalCloseAction] = useState(null);
-
+  const openModal = (msg, action = null) => {
+    setModalMessage(msg);
+    setModalCloseAction(() => action);
+    setIsModalOpen(true);
+  };
   const handleModalClose = () => {
     setIsModalOpen(false);
     setModalMessage("");
-    if (typeof modalCloseAction === "function") {
-      modalCloseAction();
-    }
+    if (typeof modalCloseAction === "function") modalCloseAction();
     setModalCloseAction(null);
   };
 
   useEffect(() => {
     if (!initialReview) {
-      setModalMessage("잘못된 접근입니다. 리뷰 정보가 없습니다.");
-      setModalCloseAction(() => () => nav("/mypage"));
-      setIsModalOpen(true);
+      openModal("잘못된 접근입니다. 리뷰 정보가 없습니다.", () => nav("/mypage"));
     }
   }, [initialReview, nav]);
 
@@ -95,13 +97,9 @@ export default function EditReview() {
   );
   const [description, setDescription] = useState(initialReview?.description ?? "");
 
-const [isDisability, setIsDisability] = useState(
-  Boolean(
-    initialReview?.isDis ??  // 혹시 detail API에서 isDis로 올 수도 있으니까
-    initialReview?.dis ??    // 리스트/현재 응답에선 dis 로 옴
-    false
-  )
-);
+  const [isDisability, setIsDisability] = useState(
+    Boolean(initialReview?.isDis ?? initialReview?.dis ?? false)
+  );
 
   const [selectedTags, setSelectedTags] = useState(
     new Set(
@@ -111,9 +109,7 @@ const [isDisability, setIsDisability] = useState(
     )
   );
 
-  const [existingPhotos, setExistingPhotos] = useState(
-    initialReview?.photo ?? []
-  );
+  const [existingPhotos, setExistingPhotos] = useState(initialReview?.photo ?? []);
   const [newPhotos, setNewPhotos] = useState([]);
   const [deletedPhotos, setDeletedPhotos] = useState([]);
 
@@ -124,6 +120,10 @@ const [isDisability, setIsDisability] = useState(
   const [errors, setErrors] = useState({});
   const uid = useId();
   const MAX_DESC = 1000;
+
+  // 🚀 신규: 이미지 검증(PENDING) 폴링 상태 (새로 업로드한 이미지에만 적용)
+  const [isPollingImages, setIsPollingImages] = useState(false);
+  const [pollingReviewId, setPollingReviewId] = useState(null);
 
   const toggleTag = (key) => {
     setSelectedTags((prev) => {
@@ -136,8 +136,7 @@ const [isDisability, setIsDisability] = useState(
           next.add(key);
           return next;
         } else {
-          setModalMessage("최대 3개까지 선택 가능합니다.");
-          setIsModalOpen(true);
+          openModal("최대 3개까지 선택 가능합니다.");
           return prev;
         }
       }
@@ -146,20 +145,17 @@ const [isDisability, setIsDisability] = useState(
 
   const validate = () => {
     const next = {};
-
     if (!star || star <= 0) next.star = "별점을 선택하세요.";
     if (description.length > MAX_DESC) {
       next.desc = `설명은 ${MAX_DESC}자 이내로 입력하세요.`;
     }
-
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handlePhotoUploadClick = () => {
     if (existingPhotos.length + newPhotos.length >= MAX_PHOTOS) {
-      setModalMessage(`사진은 최대 ${MAX_PHOTOS}장까지 업로드할 수 있습니다.`);
-      setIsModalOpen(true);
+      openModal(`사진은 최대 ${MAX_PHOTOS}장까지 업로드할 수 있습니다.`);
       return;
     }
     fileInputRef.current?.click();
@@ -173,12 +169,11 @@ const [isDisability, setIsDisability] = useState(
     const remainingSlots = MAX_PHOTOS - currentTotal;
 
     if (files.length > remainingSlots) {
-      setModalMessage(`최대 ${MAX_PHOTOS}장까지 업로드 가능합니다.`);
-      setIsModalOpen(true);
+      openModal(`최대 ${MAX_PHOTOS}장까지 업로드 가능합니다.`);
     }
 
     const filesToAdd = files.slice(0, remainingSlots).map((file) => ({
-      file: file,
+      file,
       preview: URL.createObjectURL(file),
     }));
 
@@ -190,26 +185,22 @@ const [isDisability, setIsDisability] = useState(
   };
 
   const handleDeleteExisting = (idToDelete) => {
-    setExistingPhotos((prev) =>
-      prev.filter((photo) => photo.id !== idToDelete)
-    );
+    setExistingPhotos((prev) => prev.filter((photo) => photo.id !== idToDelete));
     setDeletedPhotos((prev) => [...prev, idToDelete]);
   };
 
   const handleDeleteNew = (indexToRemove) => {
     setNewPhotos((prev) => {
-      const newArray = [...prev];
-      const [removedPhoto] = newArray.splice(indexToRemove, 1);
-      if (removedPhoto) {
-        URL.revokeObjectURL(removedPhoto.preview);
-      }
-      return newArray;
+      const next = [...prev];
+      const [removed] = next.splice(indexToRemove, 1);
+      if (removed) URL.revokeObjectURL(removed.preview);
+      return next;
     });
   };
 
   useEffect(() => {
     return () => {
-      newPhotos.forEach((photo) => URL.revokeObjectURL(photo.preview));
+      newPhotos.forEach((p) => URL.revokeObjectURL(p.preview));
     };
   }, [newPhotos]);
 
@@ -220,10 +211,8 @@ const [isDisability, setIsDisability] = useState(
     if (!BACKEND_ON) {
       try {
         setSubmitting(true);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setModalMessage("리뷰가 수정되었습니다. (mock 모드)");
-        setModalCloseAction(() => () => nav(-1));
-        setIsModalOpen(true);
+        await new Promise((r) => setTimeout(r, 1000));
+        openModal("리뷰가 수정되었습니다. (mock 모드)", () => nav(-1));
       } finally {
         setSubmitting(false);
       }
@@ -231,22 +220,20 @@ const [isDisability, setIsDisability] = useState(
     }
 
     if (!API_URL) {
-      setModalMessage("백엔드 URL이 설정되지 않았습니다.");
-      setIsModalOpen(true);
+      openModal("백엔드 URL이 설정되지 않았습니다.");
       return;
     }
 
     const accessToken = localStorage.getItem("accessToken");
     if (!accessToken) {
-      setModalMessage("로그인 정보가 없습니다. 다시 로그인해주세요.");
-      setIsModalOpen(true);
+      openModal("로그인 정보가 없습니다. 다시 로그인해주세요.");
       return;
     }
 
     setSubmitting(true);
 
     try {
-      // 리뷰 내용 수정
+      // 1) 리뷰 본문 수정
       const reviewPayload = {
         star: Number(star),
         description: description.trim(),
@@ -254,148 +241,227 @@ const [isDisability, setIsDisability] = useState(
         isDis: Boolean(isDisability),
       };
 
-      console.log("[리뷰수정 payload]", reviewPayload);
-
-      const reviewRes = await apiFetch(
-        `/user/review/${initialReview.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify(reviewPayload),
-        }
-      );
+      const reviewRes = await apiFetch(`/user/review/${initialReview.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(reviewPayload),
+      });
 
       const reviewData = await reviewRes.json().catch(() => ({}));
-      console.log("[리뷰수정 응답]", reviewRes.status, reviewData);
-
       if (!reviewRes.ok || reviewData?.success === false) {
-        throw new Error(
-          reviewData?.message || "리뷰 수정 중 오류가 발생했습니다."
-        );
+        throw new Error(reviewData?.message || "리뷰 수정 중 오류가 발생했습니다.");
       }
 
-      // 🔹 새 사진 업로드 (FormData)
+      // 2) 새 사진 업로드 (있을 때만)
+      let uploadedNewPhotos = false;
       if (newPhotos.length > 0) {
         const formData = new FormData();
+        newPhotos.forEach((p) => formData.append("photos", p.file, p.file.name));
 
-        newPhotos.forEach((photo) => {
-          formData.append("photos", photo.file, photo.file.name);
+        const photosRes = await apiFetch(`/user/review/${initialReview.id}/photos`, {
+          method: "PATCH",
+          body: formData,
         });
 
-        console.log("[사진 업로드 payload - FormData entries]");
-        for (const [key, value] of formData.entries()) {
-          console.log("  ", key, value);
-        }
-
-        const photosRes = await apiFetch(
-          `/user/review/${initialReview.id}/photos`,
-          {
-            method: "PATCH",
-            body: formData,
-          }
-        );
-
         const photosData = await photosRes.json().catch(() => ({}));
-        console.log("[사진 업로드 응답]", photosRes.status, photosData);
-
         if (!photosRes.ok || photosData?.success === false) {
           throw new Error(
-            photosData?.message ||
-              "리뷰 이미지 수정(업로드) 중 오류가 발생했습니다."
+            photosData?.message || "리뷰 이미지 수정(업로드) 중 오류가 발생했습니다."
+          );
+        }
+
+        uploadedNewPhotos = true;
+
+        // ✅ 업로드 성공 → 이미지 적합성 검증 폴링 시작
+        setPollingReviewId(initialReview.id);
+        setIsPollingImages(true);
+        openModal("이미지의 적합성을 검사 중입니다.");
+      }
+
+      // 3) 기존 사진 삭제 (있을 때만)
+      if (deletedPhotos.length > 0) {
+        const deleteFormData = new FormData();
+        const deletePayload = { deletedImageIds: deletedPhotos };
+        deleteFormData.append(
+          "request",
+          new Blob([JSON.stringify(deletePayload)], { type: "application/json" })
+        );
+
+        const deleteRes = await apiFetch(`/user/review/${initialReview.id}/photos`, {
+          method: "PATCH",
+          body: deleteFormData,
+        });
+
+        const deleteText = await deleteRes.text();
+        let deleteData = {};
+        try {
+          deleteData = JSON.parse(deleteText);
+        } catch (_) {
+          // 서버가 빈 응답을 줄 수도 있으니 조용히 무시
+        }
+        if (!deleteRes.ok || deleteData?.success === false) {
+          throw new Error(
+            deleteData?.message || "리뷰 이미지 수정(삭제) 중 오류가 발생했습니다."
           );
         }
       }
 
-// 🔹 기존 사진 삭제 (multipart/form-data + JSON part)
-if (deletedPhotos.length > 0) {
-  const deleteFormData = new FormData();
-
-  const deletePayload = { deletedImageIds: deletedPhotos };
-  console.log("[사진 삭제 ids]", deletedPhotos);
-  console.log("[사진 삭제 request JSON]", deletePayload);
-
-  // ✅ 서버가 원하는 {"deleteImageIds":[...]} 를 JSON으로 넣고,
-  //    이 파트의 Content-Type 이 application/json 이 되도록 Blob 으로 감싸줌
-  deleteFormData.append(
-    "request",
-    new Blob([JSON.stringify(deletePayload)], {
-      type: "application/json",
-    })
-  );
-
-  console.log("[사진 삭제 payload - FormData entries]");
-  for (const [key, value] of deleteFormData.entries()) {
-    if (value instanceof Blob) {
-      value.text().then((t) =>
-        console.log("   ", key, t)
-      );
-    } else {
-      console.log("   ", key, value);
-    }
-  }
-
-  const deleteRes = await apiFetch(
-    `/user/review/${initialReview.id}/photos`,
-    {
-      method: "PATCH",
-      body: deleteFormData,
-    }
-  );
-
-  const deleteText = await deleteRes.text();
-  console.log("[사진 삭제 응답(raw)]", deleteRes.status, deleteText);
-
-  let deleteData = {};
-  try {
-    deleteData = JSON.parse(deleteText);
-  } catch (e) {
-    console.warn("사진 삭제 응답 JSON 파싱 실패:", e);
-  }
-
-  if (!deleteRes.ok || deleteData?.success === false) {
-    throw new Error(
-      deleteData?.message ||
-        "리뷰 이미지 수정(삭제) 중 오류가 발생했습니다."
-    );
-  }
-}
-
-
-
-      setModalMessage("리뷰가 수정되었습니다.");
-      setModalCloseAction(() => () => nav(-1));
-      setIsModalOpen(true);
+      // 새 사진이 없으면 즉시 완료 모달
+      if (!uploadedNewPhotos) {
+        openModal("리뷰가 수정되었습니다.", () => nav(-1));
+      }
     } catch (err) {
       console.error(err);
-      setModalMessage(`수정 중 오류가 발생했습니다: ${err.message}`);
-      setIsModalOpen(true);
+      openModal(`수정 중 오류가 발생했습니다: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
+  // 🚀 새 이미지에 대한 “검수(PENDING)” 폴링: /api/v1/reviews/{id}/image-status
+// 🚀 새 이미지에 대한 “검수(PENDING)” 폴링: /api/v1/reviews/{id}/image-status
+useEffect(() => {
+  if (!isPollingImages || !pollingReviewId) return;
+
+  const accessToken = localStorage.getItem("accessToken");
+  if (!accessToken) {
+    openModal("이미지 검증을 위해 로그인이 필요합니다.", () => nav(-1));
+    setIsPollingImages(false);
+    return;
+  }
+
+  function makePollUrl(reviewId) {
+    const base = (API_URL || "").replace(/\/+$/, "");
+    return `${base}/api/v1/reviews/${reviewId}/image-status`;
+  }
+
+  let pollCount = 0;
+  const MAX_POLLS = 20;       // 약 1분
+  const POLLING_INTERVAL = 3000;
+
+  const url = makePollUrl(pollingReviewId);
+  console.groupCollapsed(
+    `%c[Polling] Start EditReview (reviewId=${pollingReviewId})`,
+    "color:#16a34a;font-weight:600"
+  );
+  console.log("[Polling] URL:", url);
+  console.log("[Polling] Interval(ms):", POLLING_INTERVAL, "Max polls:", MAX_POLLS);
+
+  const intervalId = setInterval(async () => {
+    pollCount++;
+    console.groupCollapsed(
+      `%c[Polling] Attempt #${pollCount}`,
+      "color:#16a34a"
+    );
+
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      console.log("[Polling] HTTP", res.status, res.statusText);
+      const ct = res.headers.get("content-type") || "";
+      console.log("[Polling] Content-Type:", ct);
+
+      if (res.status === 401 || res.status === 403) {
+        const text = await res.text().catch(() => "");
+        console.warn("[Polling] Auth error body:", text?.slice(0, 200));
+        throw new Error("로그인이 필요하거나 권한이 없습니다.");
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.warn("[Polling] Non-OK body:", text?.slice(0, 200));
+        throw new Error(text || `이미지 상태 확인 실패: HTTP ${res.status}`);
+      }
+
+      if (!ct.includes("application/json")) {
+        const text = await res.text().catch(() => "");
+        console.warn("[Polling] Non-JSON body:", text?.slice(0, 200));
+        throw new Error(`예상치 못한 응답 타입(${ct}).`);
+      }
+
+      const result = await res.json();
+      console.log("[Polling] Raw JSON:", result);
+      const statuses = result?.data?.imageStatuses;
+
+      if (!Array.isArray(statuses) || statuses.length === 0) {
+        console.log("[Polling] statuses empty → keep waiting…");
+        if (pollCount > MAX_POLLS) {
+          throw new Error("이미지 상태 정보를 받지 못했습니다. (타임아웃)");
+        }
+        console.groupEnd(); // Attempt
+        return;
+      }
+
+      const pending = statuses.filter((s) => s.status === "PENDING").length;
+      const rejected = statuses.filter((s) => s.status === "REJECTED").length;
+      const approved = statuses.length - pending - rejected;
+
+      console.table(statuses);
+      console.log(
+        "[Polling] counts →",
+        "pending:", pending,
+        "rejected:", rejected,
+        "approved:", approved
+      );
+
+      if (pending > 0) {
+        if (pollCount > MAX_POLLS) {
+          throw new Error("이미지 검증 시간이 초과되었습니다. 관리자에게 문의하세요.");
+        }
+        console.log("[Polling] Still pending → continue polling");
+        console.groupEnd(); // Attempt
+        return;
+      }
+
+      // 완료
+      clearInterval(intervalId);
+      setIsPollingImages(false);
+      console.log("[Polling] Completed. Stop interval.");
+
+      if (rejected > 0) {
+        openModal("해당 이미지는\n등록 기준에 맞지 않습니다.", () => nav(-1));
+      } else {
+        openModal("확인되었습니다.", () => nav(-1));
+      }
+    } catch (err) {
+      console.error("[Polling] Error:", err);
+      clearInterval(intervalId);
+      setIsPollingImages(false);
+      openModal(
+        `리뷰는 수정되었으나, 이미지 검증 중 오류가 발생했습니다: ${err.message}`,
+        () => nav(-1)
+      );
+    } finally {
+      console.groupEnd(); // Attempt
+    }
+  }, POLLING_INTERVAL);
+
+  return () => {
+    console.log("[Polling] Cleanup (unmount or deps change). Clearing interval.");
+    console.groupEnd(); // Start group
+    clearInterval(intervalId);
+  };
+}, [isPollingImages, pollingReviewId, nav, API_URL]);
+
+
+
   if (!initialReview) {
     return (
       <div className="edit-review-page">
         <TopHeader />
-        <p style={{ padding: "20px", textAlign: "center" }}>
-          리뷰 정보를 불러오는 중...
-        </p>
-        <AlertModal
-          isOpen={isModalOpen}
-          message={modalMessage}
-          onClose={handleModalClose}
-        />
+        <p style={{ padding: "20px", textAlign: "center" }}>리뷰 정보를 불러오는 중...</p>
+        <AlertModal isOpen={isModalOpen} message={modalMessage} onClose={handleModalClose} />
       </div>
     );
   }
 
   return (
     <div className="edit-review-page">
-      <AlertModal
-        isOpen={isModalOpen}
-        message={modalMessage}
-        onClose={handleModalClose}
-      />
+      <AlertModal isOpen={isModalOpen} message={modalMessage} onClose={handleModalClose} />
 
       <TopHeader />
 
@@ -501,7 +567,6 @@ if (deletedPhotos.length > 0) {
         {/* 리뷰 내용 + 사진 */}
         <div className="er-field">
           <label htmlFor={`${uid}-desc`} className="er-label" />
-          
           <div className={`er-textarea-wrapper ${errors.desc ? "er-input-err" : ""}`}>
             <div className="er-photo-previews">
               {existingPhotos.map((photo) => (
@@ -549,15 +614,13 @@ if (deletedPhotos.length > 0) {
                 onClick={handlePhotoUploadClick}
                 aria-label="사진 업로드"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"> <path d="M4.68001 16.6666C4.29612 16.6666 3.97584 16.5383 3.71918 16.2816C3.46251 16.0249 3.3339 15.7044 3.33334 15.3199V4.67992C3.33334 4.29603 3.46195 3.97575 3.71918 3.71909C3.9764 3.46242 4.29668 3.33381 4.68001 3.33325H15.3208C15.7042 3.33325 16.0245 3.46186 16.2817 3.71909C16.5389 3.97631 16.6672 4.29659 16.6667 4.67992V15.3208C16.6667 15.7041 16.5383 16.0244 16.2817 16.2816C16.025 16.5388 15.7045 16.6671 15.32 16.6666H4.68001ZM4.68001 15.8333H15.3208C15.4486 15.8333 15.5661 15.7799 15.6733 15.6733C15.7806 15.5666 15.8339 15.4488 15.8333 15.3199V4.67992C15.8333 4.55159 15.78 4.43381 15.6733 4.32659C15.5667 4.21936 15.4489 4.16603 15.32 4.16659H4.68001C4.55168 4.16659 4.4339 4.21992 4.32668 4.32659C4.21945 4.43325 4.16612 4.55103 4.16668 4.67992V15.3208C4.16668 15.4485 4.22001 15.566 4.32668 15.6733C4.43334 15.7805 4.55084 15.8338 4.67918 15.8333M6.92334 13.7499H13.205C13.34 13.7499 13.4383 13.6896 13.5 13.5691C13.5617 13.4485 13.5533 13.3291 13.475 13.2108L11.7917 10.9508C11.7195 10.8608 11.6297 10.8158 11.5225 10.8158C11.4158 10.8158 11.3261 10.8608 11.2533 10.9508L9.34334 13.3658L8.15418 11.9283C8.0814 11.8488 7.99418 11.8091 7.89251 11.8091C7.7914 11.8091 7.70445 11.8541 7.63168 11.9441L6.67001 13.2108C6.58001 13.3291 6.56612 13.4485 6.62834 13.5691C6.69057 13.6896 6.7889 13.7499 6.92334 13.7499Z" fill="#4860BE"/> </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M4.68001 16.6666C4.29612 16.6666 3.97584 16.5383 3.71918 16.2816C3.46251 16.0249 3.3339 15.7044 3.33334 15.3199V4.67992C3.33334 4.29603 3.46195 3.97575 3.71918 3.71909C3.9764 3.46242 4.29668 3.33381 4.68001 3.33325H15.3208C15.7042 3.33325 16.0245 3.46186 16.2817 3.71909C16.5389 3.97631 16.6672 4.29659 16.6667 4.67992V15.3208C16.6667 15.7041 16.5383 16.0244 16.2817 16.2816C16.025 16.5388 15.7045 16.6671 15.32 16.6666H4.68001ZM4.68001 15.8333H15.3208C15.4486 15.8333 15.5661 15.7799 15.6733 15.6733C15.7806 15.5666 15.8339 15.4488 15.8333 15.3199V4.67992C15.8333 4.55159 15.78 4.43381 15.6733 4.32659C15.5667 4.21936 15.4489 4.16603 15.32 4.16659H4.68001C4.55168 4.16659 4.4339 4.21992 4.32668 4.32659C4.21945 4.43325 4.16612 4.55103 4.16668 4.67992V15.3208C4.16668 15.4485 4.22001 15.566 4.32668 15.6733C4.43334 15.7805 4.55084 15.8338 4.67918 15.8333M6.92334 13.7499H13.205C13.34 13.7499 13.4383 13.6896 13.5 13.5691C13.5617 13.4485 13.5533 13.3291 13.475 13.2108L11.7917 10.9508C11.7195 10.8608 11.6297 10.8158 11.5225 10.8158C11.4158 10.8158 11.3261 10.8608 11.2533 10.9508L9.34334 13.3658L8.15418 11.9283C8.0814 11.8488 7.99418 11.8091 7.89251 11.8091C7.7914 11.8091 7.70445 11.8541 7.63168 11.9441L6.67001 13.2108C6.58001 13.3291 6.56612 13.4485 6.62834 13.5691C6.69057 13.6896 6.7889 13.7499 6.92334 13.7499Z" fill="#4860BE"/>
+                </svg>
               </button>
-              
-              <span className="er-count">
-                {description.length}/{MAX_DESC}
-              </span>
+              <span className="er-count">{description.length}/{MAX_DESC}</span>
             </div>
           </div>
-          
           {errors.desc && <p className="er-err">{errors.desc}</p>}
         </div>
 
@@ -570,7 +633,6 @@ if (deletedPhotos.length > 0) {
           style={{ display: "none" }}
           aria-hidden="true"
         />
-    
       </form>
 
       <div className="er-footer">
@@ -578,7 +640,7 @@ if (deletedPhotos.length > 0) {
           type="button"
           className="er-btn er-ghost"
           onClick={() => nav(-1)}
-          disabled={submitting}
+          disabled={submitting || isPollingImages}
         >
           취소
         </button>
@@ -586,9 +648,13 @@ if (deletedPhotos.length > 0) {
           type="submit"
           className="er-btn er-primary"
           form="review-form"
-          disabled={submitting}
+          disabled={submitting || isPollingImages}
         >
-          {submitting ? "저장 중..." : "수정 완료"}
+          {submitting
+            ? "저장 중..."
+            : isPollingImages
+            ? "이미지 검증 중..."
+            : "수정 완료"}
         </button>
       </div>
     </div>
