@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import heart from '../../assets/heart.svg';
-import star_yell from '../../assets/star/star-yell.svg';
-import star_grey from '../../assets/star/star-grey.svg';
+import React, { useState, useEffect } from "react";
+import heart from "../../assets/heart.svg";
+import star_yell from "../../assets/star/star-yell.svg";
+import star_grey from "../../assets/star/star-grey.svg";
 // (500 오류 방지를 위해 user-icon import는 주석 처리합니다. 실제 경로를 확인하세요)
-// import defaultUserIcon from '../../assets/user-icon.svg'; 
+// import defaultUserIcon from '../../assets/user-icon.svg';
 
-import './ReviewCard.css';
+// 🚀 [수정 1] apiFetch를 import 합니다. (경로는 실제 위치에 맞게 조정하세요)
+import apiFetch from "../../api.js";
+
+import "./ReviewCard.css";
 
 // API 설정
-const API_URL = import.meta.env.VITE_APP_BACKEND_URL;
+// const API_URL = import.meta.env.VITE_APP_BACKEND_URL; // 🚀 [수정 2] apiFetch가 URL을 관리하므로 삭제
 const BACKEND_ON = true; // 🚨 true로 바꾸면 실제 API 호출
 
 // 영어 태그 → 한글 매핑
@@ -49,29 +52,32 @@ const formatDate = (dateString) => {
 // --- 메인 컴포넌트 ---
 
 export default function ReviewCard({ reviews, toiletId, showPhotos }) {
-  
   // '좋아요' 상태를 관리하기 위해 props를 local state로 복사
   const [internalReviews, setInternalReviews] = useState([]);
-  
+
   useEffect(() => {
     // 🚨 [가정] 백엔드가 "isLiked" boolean을 보내준다고 가정
     // (7:40 PM 로그에는 이 값이 빠져있습니다. 백엔드 응답에 'isLiked: true/false'가 포함되어야 합니다)
-    const reviewsWithLikeState = (reviews || []).map(r => ({
+    const reviewsWithLikeState = (reviews || []).map((r) => ({
       ...r,
       // 🚨 (중요) API 응답에 isLiked가 없다면, 임시로 false를 사용
-      isLiked: r.isLiked || false, 
+      isLiked: r.isLiked || false,
     }));
     setInternalReviews(reviewsWithLikeState);
   }, [reviews]); // reviews prop이 바뀔 때마다 local state 갱신
 
-  // 👇 [수정] 이 함수를 통째로 덮어쓰세요
+  // 👇 [수정 3] handleLikeClick 함수 전체를 apiFetch 버전으로 교체
   const handleLikeClick = async (reviewId, isCurrentlyLiked) => {
     // (A) Mock 모드 (BACKEND_ON = false)
     if (!BACKEND_ON) {
-      console.log(`[Mock] ${isCurrentlyLiked ? 'DELETE' : 'POST'} /toilet/${toiletId}/reviews/${reviewId}/like`);
+      console.log(
+        `[Mock] ${
+          isCurrentlyLiked ? "DELETE" : "POST"
+        } /toilet/${toiletId}/reviews/${reviewId}/like`
+      );
       // Mock 모드에서도 UI가 즉시 반응하도록 state 업데이트
-      setInternalReviews(currentReviews =>
-        currentReviews.map(r =>
+      setInternalReviews((currentReviews) =>
+        currentReviews.map((r) =>
           r.id === reviewId
             ? {
                 ...r,
@@ -85,16 +91,17 @@ export default function ReviewCard({ reviews, toiletId, showPhotos }) {
     }
 
     // (B) 실제 API 모드 (BACKEND_ON = true)
-    const accessToken = localStorage.getItem("accessToken");
-    if (!accessToken) {
-      alert("좋아요를 누르려면 로그인이 필요합니다.");
-      return;
-    }
+
+    // 🚀 [수정] accessToken 관련 로직(getItem, if문) 모두 삭제
+    // apiFetch가 토큰을 자동으로 관리합니다.
+    // 만약 로그인이 필요하다는 알림을 띄우고 싶다면,
+    // apiFetch가 401 에러를 던졌을 때 catch 블록에서 처리할 수 있습니다.
+    // (현재는 'err.message'를 alert 하도록 되어있습니다.)
 
     // API 호출 전 즉시 UI 업데이트 (Optimistic Update)
     const originalReviews = internalReviews; // 롤백 대비
-    setInternalReviews(currentReviews =>
-      currentReviews.map(r =>
+    setInternalReviews((currentReviews) =>
+      currentReviews.map((r) =>
         r.id === reviewId
           ? {
               ...r,
@@ -105,43 +112,45 @@ export default function ReviewCard({ reviews, toiletId, showPhotos }) {
       )
     );
 
-    const method = isCurrentlyLiked ? 'DELETE' : 'POST';
-    const endpoint = `${API_URL}/toilet/${toiletId}/reviews/${reviewId}/like`;
+    const method = isCurrentlyLiked ? "DELETE" : "POST";
+    // 🚀 [수정] URL에서 API_URL 부분을 제거하고 경로만 남깁니다.
+    const endpointPath = `/toilet/${toiletId}/reviews/${reviewId}/like`;
 
     try {
-      const response = await fetch(endpoint, {
+      // 🚀 [수정] fetch -> apiFetch로 변경
+      // 🚀 [수정] headers 객체 제거
+      const response = await apiFetch(endpointPath, {
         method: method,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
-        },
+        // headers: 객체 불필요
       });
 
       if (!response.ok) {
         // (409 Conflict 등 에러 발생 시)
         const errResult = await response.json();
         // 🚨 [수정] 에러 객체에 status 코드를 포함시킵니다.
-        const error = new Error(errResult.message || "좋아요 처리에 실패했습니다.");
-        error.status = response.status; 
+        const error = new Error(
+          errResult.message || "좋아요 처리에 실패했습니다."
+        );
+        error.status = response.status;
         throw error;
       }
-      
+
       console.log(`Like ${method} success for review ${reviewId}`);
       // (성공 시 UI는 이미 업데이트되었으므로 추가 작업 불필요)
-
     } catch (err) {
       console.error("Like API Error:", err.message);
 
       // 🚨 [핵심 수정]
       // "좋아요" (POST)를 시도했는데 "이미 좋아요를 눌렀다" (409 Conflict) 에러가 발생한 경우
-      if (method === 'POST' && err.status === 409) {
-        
-        console.warn("UI/서버 상태 불일치 (409). 이미 '좋아요' 상태입니다. '좋아요 취소(DELETE)'를 대신 실행합니다.");
+      if (method === "POST" && err.status === 409) {
+        console.warn(
+          "UI/서버 상태 불일치 (409). 이미 '좋아요' 상태입니다. '좋아요 취소(DELETE)'를 대신 실행합니다."
+        );
 
         // 1. UI를 "좋아요 취소" 상태로 되돌립니다.
         // (optimistic update로 +1 했던 것을 -2 하여 (-1) 상태로 만듭니다)
-        setInternalReviews(currentReviews =>
-          currentReviews.map(r =>
+        setInternalReviews((currentReviews) =>
+          currentReviews.map((r) =>
             r.id === reviewId
               ? {
                   ...r,
@@ -154,12 +163,11 @@ export default function ReviewCard({ reviews, toiletId, showPhotos }) {
 
         // 2. "좋아요 취소(DELETE)" API를 대신 호출합니다.
         try {
-          const deleteResponse = await fetch(endpoint, {
-            method: 'DELETE',
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${accessToken}`,
-            },
+          // 🚀 [수정] fetch -> apiFetch로 변경
+          // 🚀 [수정] headers 객체 제거
+          const deleteResponse = await apiFetch(endpointPath, {
+            method: "DELETE",
+            // headers: 객체 불필요
           });
 
           if (!deleteResponse.ok) {
@@ -167,25 +175,27 @@ export default function ReviewCard({ reviews, toiletId, showPhotos }) {
             throw new Error("상태 보정(DELETE) 요청에 실패했습니다.");
           }
           console.log("상태 보정(DELETE) 성공.");
-
         } catch (deleteErr) {
           console.error("Corrective DELETE failed:", deleteErr.message);
           setInternalReviews(originalReviews); // 롤백
           alert("좋아요 상태를 변경하지 못했습니다.");
         }
-
       } else {
         // 409가 아닌 다른 에러(500 등)이거나, DELETE 자체가 실패한 경우
         // 🚨 API 호출 실패 시, UI를 원래대로 롤백
         setInternalReviews(originalReviews);
+        // 🚀 apiFetch가 401(토큰 없음/만료) 에러를 반환하면 여기서 alert(err.message)가 실행됩니다.
         alert(err.message);
       }
     }
   };
 
-
   // [수정] internalReviews가 비어있을 때
-  if (!internalReviews || !Array.isArray(internalReviews) || internalReviews.length === 0) {
+  if (
+    !internalReviews ||
+    !Array.isArray(internalReviews) ||
+    internalReviews.length === 0
+  ) {
     return null;
   }
 
@@ -197,11 +207,11 @@ export default function ReviewCard({ reviews, toiletId, showPhotos }) {
         const displayDate = isUpdated
           ? `${formatDate(review.updatedAt)} (수정)`
           : formatDate(review.createdAt);
-        
+
         // 🚨 [수정] 7:40 PM 로그 기준 'tag' 키 사용
         const tagsToShow = review.tag || review.tags || [];
-        
-        const isLiked = review.isLiked; 
+
+        const isLiked = review.isLiked;
 
         return (
           <div key={review.id} className="review-card">
@@ -209,7 +219,11 @@ export default function ReviewCard({ reviews, toiletId, showPhotos }) {
               <div className="top">
                 {/* 🚨 [수정] 7:40 PM 로그 기준 'userPhoto' 키 사용 */}
                 {review.userPhoto ? (
-                  <img src={review.userPhoto} alt="profile" className="frofile-img" />
+                  <img
+                    src={review.userPhoto}
+                    alt="profile"
+                    className="frofile-img"
+                  />
                 ) : (
                   // defaultUserIcon이 주석 처리되었으므로 기본 div만 표시
                   <div className="frofile-img"></div>
@@ -244,29 +258,28 @@ export default function ReviewCard({ reviews, toiletId, showPhotos }) {
                   ))}
                 </div>
               )}
-              
+
               {/* 👇 2. 이 부분을 {showPhotos && ...} 로 감싸줍니다. */}
- {showPhotos && review.photoUrl && review.photoUrl.length > 0 && (
- <div className="rc-photo-list">
- {review.photoUrl.map((url, index) => (
-<img 
-key={index} 
- src={url} 
- alt={`review-photo-${index}`} 
- className="rc-photo-item"
- />
+              {showPhotos && review.photoUrl && review.photoUrl.length > 0 && (
+                <div className="rc-photo-list">
+                  {review.photoUrl.map((url, index) => (
+                    <img
+                      key={index}
+                      src={url}
+                      alt={`review-photo-${index}`}
+                      className="rc-photo-item"
+                    />
                   ))}
                 </div>
               )}
-              
             </div>
 
             {/* [수정] onClick 이벤트와 'active' 클래스 추가 */}
-            <div 
+            <div
               className="like"
               onClick={() => handleLikeClick(review.id, isLiked)}
             >
-              <div className={`sub-like ${isLiked ? 'active' : ''}`}>
+              <div className={`sub-like ${isLiked ? "active" : ""}`}>
                 <img src={heart} alt="like" />
                 <p>{review.good}</p>
               </div>
