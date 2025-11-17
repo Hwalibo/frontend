@@ -32,7 +32,7 @@ export default function Navbar() {
           <img
             src={activeTab === "home" ? home_active : home}
             alt="home"
-            onClick={() => handleClick("home", "/")}
+            onClick={() => handleClick("home", "/homepage")}
           />
           <img
             src={activeTab === "my" ? my_active : my}
