@@ -62,7 +62,14 @@
     color: #000;
     font-weight: 400;
     padding-left: 2px;
+   
 
+}
+
+.profile-subcon{
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
 }
 
 .profile-bottom span{
@@ -128,12 +135,17 @@
     display: flex;
     gap: 10px;
     align-items: center;
+
 }
 
 .review-header p{
     font-size: 15px;
     display: flex;
     align-items: center;
+}
+
+.del{
+    margin-top: auto;
 }
 
 .review-header p .fe{
