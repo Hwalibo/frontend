@@ -70,7 +70,7 @@ export default function EditReview() {
 
   const initialReview = location.state?.review;
 
-  // 공용 모달 (상태/알림/제한 모두 이 모달 하나로 처리)
+  // 공용 모달
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalCloseAction, setModalCloseAction] = useState(null);
@@ -111,7 +111,6 @@ export default function EditReview() {
 
   const [existingPhotos, setExistingPhotos] = useState(initialReview?.photo ?? []);
   const [newPhotos, setNewPhotos] = useState([]);
-  const [deletedPhotos, setDeletedPhotos] = useState([]);
 
   const fileInputRef = useRef(null);
   const MAX_PHOTOS = 2;
@@ -121,7 +120,7 @@ export default function EditReview() {
   const uid = useId();
   const MAX_DESC = 1000;
 
-  // 🚀 신규: 이미지 검증(PENDING) 폴링 상태 (새로 업로드한 이미지에만 적용)
+  // 🚀 이미지 검증(PENDING) 폴링 상태
   const [isPollingImages, setIsPollingImages] = useState(false);
   const [pollingReviewId, setPollingReviewId] = useState(null);
 
@@ -184,9 +183,58 @@ export default function EditReview() {
     }
   };
 
-  const handleDeleteExisting = (idToDelete) => {
-    setExistingPhotos((prev) => prev.filter((photo) => photo.id !== idToDelete));
-    setDeletedPhotos((prev) => [...prev, idToDelete]);
+  // ✅ 기존 이미지 삭제 시, 즉시 백엔드에 삭제 요청
+  const handleDeleteExisting = async (idToDelete) => {
+    if (!BACKEND_ON) {
+      setExistingPhotos((prev) => prev.filter((photo) => photo.id !== idToDelete));
+      openModal("이미지가 삭제된 것처럼 처리되었습니다. (mock 모드)");
+      return;
+    }
+
+    if (!API_URL) {
+      openModal("백엔드 URL이 설정되지 않았습니다.");
+      return;
+    }
+
+    const accessToken = localStorage.getItem("accessToken");
+    if (!accessToken) {
+      openModal("로그인 정보가 없습니다. 다시 로그인해주세요.");
+      return;
+    }
+
+    try {
+      const deletePayload = { deletedImageIds: [idToDelete] };
+      const deleteFormData = new FormData();
+      deleteFormData.append(
+        "request",
+        new Blob([JSON.stringify(deletePayload)], { type: "application/json" })
+      );
+
+      const deleteRes = await apiFetch(`/user/review/${initialReview.id}/photos`, {
+        method: "PATCH",
+        body: deleteFormData,
+      });
+
+      const deleteText = await deleteRes.text();
+      let deleteData = {};
+      try {
+        deleteData = JSON.parse(deleteText);
+      } catch (_) {
+        // 빈 응답일 수도 있으므로 조용히 무시
+      }
+
+      if (!deleteRes.ok || deleteData?.success === false) {
+        throw new Error(
+          deleteData?.message || "이미지 삭제 중 오류가 발생했습니다."
+        );
+      }
+
+      setExistingPhotos((prev) => prev.filter((photo) => photo.id !== idToDelete));
+      openModal("이미지가 삭제되었습니다.");
+    } catch (err) {
+      console.error("이미지 삭제 실패:", err);
+      openModal(err.message || "이미지 삭제 중 오류가 발생했습니다.");
+    }
   };
 
   const handleDeleteNew = (indexToRemove) => {
@@ -277,33 +325,7 @@ export default function EditReview() {
         openModal("이미지의 적합성을 검사 중입니다.");
       }
 
-      // 3) 기존 사진 삭제 (있을 때만)
-      if (deletedPhotos.length > 0) {
-        const deleteFormData = new FormData();
-        const deletePayload = { deletedImageIds: deletedPhotos };
-        deleteFormData.append(
-          "request",
-          new Blob([JSON.stringify(deletePayload)], { type: "application/json" })
-        );
-
-        const deleteRes = await apiFetch(`/user/review/${initialReview.id}/photos`, {
-          method: "PATCH",
-          body: deleteFormData,
-        });
-
-        const deleteText = await deleteRes.text();
-        let deleteData = {};
-        try {
-          deleteData = JSON.parse(deleteText);
-        } catch (_) {
-          // 서버가 빈 응답을 줄 수도 있으니 조용히 무시
-        }
-        if (!deleteRes.ok || deleteData?.success === false) {
-          throw new Error(
-            deleteData?.message || "리뷰 이미지 수정(삭제) 중 오류가 발생했습니다."
-          );
-        }
-      }
+      // 기존 사진 삭제는 X 버튼에서 이미 처리
 
       // 새 사진이 없으면 즉시 완료 모달
       if (!uploadedNewPhotos) {
@@ -318,136 +340,154 @@ export default function EditReview() {
   };
 
   // 🚀 새 이미지에 대한 “검수(PENDING)” 폴링: /api/v1/reviews/{id}/image-status
-// 🚀 새 이미지에 대한 “검수(PENDING)” 폴링: /api/v1/reviews/{id}/image-status
-useEffect(() => {
-  if (!isPollingImages || !pollingReviewId) return;
+  useEffect(() => {
+    if (!isPollingImages || !pollingReviewId) return;
 
-  const accessToken = localStorage.getItem("accessToken");
-  if (!accessToken) {
-    openModal("이미지 검증을 위해 로그인이 필요합니다.", () => nav(-1));
-    setIsPollingImages(false);
-    return;
-  }
-
-  function makePollUrl(reviewId) {
-    const base = (API_URL || "").replace(/\/+$/, "");
-    return `${base}/api/v1/reviews/${reviewId}/image-status`;
-  }
-
-  let pollCount = 0;
-  const MAX_POLLS = 20;       // 약 1분
-  const POLLING_INTERVAL = 3000;
-
-  const url = makePollUrl(pollingReviewId);
-  console.groupCollapsed(
-    `%c[Polling] Start EditReview (reviewId=${pollingReviewId})`,
-    "color:#16a34a;font-weight:600"
-  );
-  console.log("[Polling] URL:", url);
-  console.log("[Polling] Interval(ms):", POLLING_INTERVAL, "Max polls:", MAX_POLLS);
-
-  const intervalId = setInterval(async () => {
-    pollCount++;
-    console.groupCollapsed(
-      `%c[Polling] Attempt #${pollCount}`,
-      "color:#16a34a"
-    );
-
-    try {
-      const res = await fetch(url, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      console.log("[Polling] HTTP", res.status, res.statusText);
-      const ct = res.headers.get("content-type") || "";
-      console.log("[Polling] Content-Type:", ct);
-
-      if (res.status === 401 || res.status === 403) {
-        const text = await res.text().catch(() => "");
-        console.warn("[Polling] Auth error body:", text?.slice(0, 200));
-        throw new Error("로그인이 필요하거나 권한이 없습니다.");
-      }
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.warn("[Polling] Non-OK body:", text?.slice(0, 200));
-        throw new Error(text || `이미지 상태 확인 실패: HTTP ${res.status}`);
-      }
-
-      if (!ct.includes("application/json")) {
-        const text = await res.text().catch(() => "");
-        console.warn("[Polling] Non-JSON body:", text?.slice(0, 200));
-        throw new Error(`예상치 못한 응답 타입(${ct}).`);
-      }
-
-      const result = await res.json();
-      console.log("[Polling] Raw JSON:", result);
-      const statuses = result?.data?.imageStatuses;
-
-      if (!Array.isArray(statuses) || statuses.length === 0) {
-        console.log("[Polling] statuses empty → keep waiting…");
-        if (pollCount > MAX_POLLS) {
-          throw new Error("이미지 상태 정보를 받지 못했습니다. (타임아웃)");
-        }
-        console.groupEnd(); // Attempt
-        return;
-      }
-
-      const pending = statuses.filter((s) => s.status === "PENDING").length;
-      const rejected = statuses.filter((s) => s.status === "REJECTED").length;
-      const approved = statuses.length - pending - rejected;
-
-      console.table(statuses);
-      console.log(
-        "[Polling] counts →",
-        "pending:", pending,
-        "rejected:", rejected,
-        "approved:", approved
-      );
-
-      if (pending > 0) {
-        if (pollCount > MAX_POLLS) {
-          throw new Error("이미지 검증 시간이 초과되었습니다. 관리자에게 문의하세요.");
-        }
-        console.log("[Polling] Still pending → continue polling");
-        console.groupEnd(); // Attempt
-        return;
-      }
-
-      // 완료
-      clearInterval(intervalId);
+    const accessToken = localStorage.getItem("accessToken");
+    if (!accessToken) {
+      openModal("이미지 검증을 위해 로그인이 필요합니다.", () => nav(-1));
       setIsPollingImages(false);
-      console.log("[Polling] Completed. Stop interval.");
-
-      if (rejected > 0) {
-        openModal("해당 이미지는\n등록 기준에 맞지 않습니다.", () => nav(-1));
-      } else {
-        openModal("확인되었습니다.", () => nav(-1));
-      }
-    } catch (err) {
-      console.error("[Polling] Error:", err);
-      clearInterval(intervalId);
-      setIsPollingImages(false);
-      openModal(
-        `리뷰는 수정되었으나, 이미지 검증 중 오류가 발생했습니다: ${err.message}`,
-        () => nav(-1)
-      );
-    } finally {
-      console.groupEnd(); // Attempt
+      return;
     }
-  }, POLLING_INTERVAL);
 
-  return () => {
-    console.log("[Polling] Cleanup (unmount or deps change). Clearing interval.");
-    console.groupEnd(); // Start group
-    clearInterval(intervalId);
-  };
-}, [isPollingImages, pollingReviewId, nav, API_URL]);
+    function makePollUrl(reviewId) {
+      const base = (API_URL || "").replace(/\/+$/, "");
+      return `${base}/api/v1/reviews/${reviewId}/image-status`;
+    }
 
+    let pollCount = 0;
+    const MAX_POLLS = 30;       // 약 1분
+    const POLLING_INTERVAL = 3000;
 
+    const url = makePollUrl(pollingReviewId);
+    console.groupCollapsed(
+      `%c[Polling] Start EditReview (reviewId=${pollingReviewId})`,
+      "color:#16a34a;font-weight:600"
+    );
+    console.log("[Polling] URL:", url);
+    console.log("[Polling] Interval(ms):", POLLING_INTERVAL, "Max polls:", MAX_POLLS);
+
+    const intervalId = setInterval(async () => {
+      pollCount++;
+      console.groupCollapsed(
+        `%c[Polling] Attempt #${pollCount}`,
+        "color:#16a34a"
+      );
+
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        console.log("[Polling] HTTP", res.status, res.statusText);
+        const ct = res.headers.get("content-type") || "";
+        console.log("[Polling] Content-Type:", ct);
+
+        if (res.status === 401 || res.status === 403) {
+          const text = await res.text().catch(() => "");
+          console.warn("[Polling] Auth error body:", text?.slice(0, 200));
+          throw new Error("로그인이 필요하거나 권한이 없습니다.");
+        }
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          console.warn("[Polling] Non-OK body:", text?.slice(0, 200));
+          throw new Error(text || `이미지 상태 확인 실패: HTTP ${res.status}`);
+        }
+
+        if (!ct.includes("application/json")) {
+          const text = await res.text().catch(() => "");
+          console.warn("[Polling] Non-JSON body:", text?.slice(0, 200));
+          throw new Error(`예상치 못한 응답 타입(${ct}).`);
+        }
+
+        const result = await res.json();
+        console.log("[Polling] Raw JSON:", result);
+
+        // ✅ data 배열 / data.imageStatuses 둘 다 대응
+        let statuses = [];
+        if (Array.isArray(result?.data)) {
+          statuses = result.data;
+        } else if (Array.isArray(result?.data?.imageStatuses)) {
+          statuses = result.data.imageStatuses;
+        }
+
+        console.log("[Polling] imageStatuses(raw):", statuses);
+
+        if (!Array.isArray(statuses) || statuses.length === 0) {
+          console.log("[Polling] statuses empty → keep waiting…");
+          if (pollCount > MAX_POLLS) {
+            throw new Error("이미지 상태 정보를 받지 못했습니다. (타임아웃)");
+          }
+          console.groupEnd();
+          return;
+        }
+
+        const normalized = statuses.map((s) => {
+          const norm = String(s.status || "").toUpperCase().trim();
+          return { ...s, _statusNorm: norm };
+        });
+
+        console.table(normalized);
+
+        const pending = normalized.filter((s) => s._statusNorm === "PENDING").length;
+        const rejected = normalized.filter((s) => s._statusNorm === "REJECTED").length;
+        const approved = normalized.filter((s) => s._statusNorm === "APPROVED").length;
+
+        console.log(
+          "[Polling] counts →",
+          "pending:", pending,
+          "rejected:", rejected,
+          "approved:", approved
+        );
+
+        if (pending > 0) {
+          console.log("[Polling] Branch = PENDING (계속 폴링)");
+          if (pollCount > MAX_POLLS) {
+            throw new Error("이미지 검증 시간이 초과되었습니다. 관리자에게 문의하세요.");
+          }
+          console.groupEnd();
+          return;
+        }
+
+        // 완료 지점 (PENDING 0)
+        clearInterval(intervalId);
+        setIsPollingImages(false);
+        console.log("[Polling] Branch = DONE (PENDING 0). Stop interval.");
+
+        if (rejected > 0) {
+          console.log("[Polling] Branch = REJECTED 팝업 호출");
+          // ✅ 새로 업로드한 사진(프론트 미리보기) 숨기기
+          setNewPhotos([]);
+          // ✅ 페이지 유지 (nav(-1) 안 함)
+          openModal("해당 이미지는\n등록 기준에 맞지 않습니다.");
+        } else {
+          console.log("[Polling] Branch = APPROVED 팝업 호출");
+          // APPROVED면 기존 UX 그대로: 모달 → 뒤로가기
+          openModal("확인되었습니다.", () => nav(-1));
+        }
+      } catch (err) {
+        console.error("[Polling] Error:", err);
+        clearInterval(intervalId);
+        setIsPollingImages(false);
+        openModal(
+          `리뷰는 수정되었으나, 이미지 검증 중 오류가 발생했습니다: ${err.message}`,
+          () => nav(-1)
+        );
+      } finally {
+        console.groupEnd();
+      }
+    }, POLLING_INTERVAL);
+
+    return () => {
+      console.log("[Polling] Cleanup (unmount or deps change). Clearing interval.");
+      console.groupEnd();
+      clearInterval(intervalId);
+    };
+  }, [isPollingImages, pollingReviewId, nav, API_URL]);
 
   if (!initialReview) {
     return (
