@@ -303,7 +303,7 @@ export default function MyPage() {
   // 🔹 회원탈퇴 버튼 클릭 시 → 확인/취소 모달
   const handleWithdrawClick = () => {
     openModal(
-      "정말 회원 탈퇴를 진행하시겠습니까? \n탈퇴 후에는 계정 복구가 불가능합니다.",
+      "정말 회원 탈퇴를 진행하시겠습니까? ",
       performWithdraw
     );
   };
