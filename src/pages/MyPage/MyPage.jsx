@@ -328,7 +328,7 @@ export default function MyPage() {
             </div>
             <div className="my-name">
               <p>{name}</p>
-              <img src={rename} alt="rename" onClick={() => nav("/ChangeName")} />
+              <img className='name-icon' src={rename} alt="rename" onClick={() => nav("/ChangeName")} />
             </div>
           </div>
         </div>

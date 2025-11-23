@@ -97,7 +97,7 @@ export default function TopHeader() {
         <>
             <div className="top-header-con">
                 <div className="content">
-                    <img src={logo} onClick={() => { navigate("/") }} />
+                    <img src={logo} onClick={() => { navigate("/homepage") }} />
                     
                     {isLoggedIn && (
                         <div className="header-actions">
