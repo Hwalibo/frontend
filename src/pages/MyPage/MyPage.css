@@ -146,6 +146,11 @@
 
 .del{
     margin-top: auto;
+    cursor: pointer;
+}
+
+.name-icon{
+    cursor: pointer;
 }
 
 .review-header p .fe{
