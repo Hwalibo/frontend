@@ -113,6 +113,9 @@ export default function EditReview() {
   const [newPhotos, setNewPhotos] = useState([]);
 
   const fileInputRef = useRef(null);
+  // [추가] 업로드한 사진 개수를 기억하기 위한 ref (로그 출력용)
+  const uploadCountRef = useRef(0);
+
   const MAX_PHOTOS = 2;
 
   const [submitting, setSubmitting] = useState(false);
@@ -237,6 +240,7 @@ export default function EditReview() {
     }
   };
 
+  // ✅ 프론트엔드에서 새 이미지 삭제 (전송 목록에서 제외됨)
   const handleDeleteNew = (indexToRemove) => {
     setNewPhotos((prev) => {
       const next = [...prev];
@@ -301,9 +305,13 @@ export default function EditReview() {
 
       // 2) 새 사진 업로드 (있을 때만)
       let uploadedNewPhotos = false;
-      if (newPhotos.length > 0) {
+      
+      // [필터링] 화면에 남아있는 파일만 전송
+      const validPhotos = newPhotos.filter(p => p.file);
+
+      if (validPhotos.length > 0) {
         const formData = new FormData();
-        newPhotos.forEach((p) => formData.append("photos", p.file, p.file.name));
+        validPhotos.forEach((p) => formData.append("photos", p.file, p.file.name));
 
         const photosRes = await apiFetch(`/user/review/${initialReview.id}/photos`, {
           method: "PATCH",
@@ -318,6 +326,9 @@ export default function EditReview() {
         }
 
         uploadedNewPhotos = true;
+        
+        // [추가] 폴링 로그를 위해 업로드한 개수 저장
+        uploadCountRef.current = validPhotos.length;
 
         // ✅ 업로드 성공 → 이미지 적합성 검증 폴링 시작
         setPollingReviewId(initialReview.id);
@@ -325,9 +336,7 @@ export default function EditReview() {
         openModal("이미지의 적합성을 검사 중입니다.");
       }
 
-      // 기존 사진 삭제는 X 버튼에서 이미 처리
-
-      // 새 사진이 없으면 즉시 완료 모달
+      // 새 사진이 없으면 즉시 완료 처리
       if (!uploadedNewPhotos) {
         openModal("리뷰가 수정되었습니다.", () => nav(-1));
       }
@@ -356,22 +365,25 @@ export default function EditReview() {
     }
 
     let pollCount = 0;
-    const MAX_POLLS = 30;       // 약 1분
+    const MAX_POLLS = 30; 
     const POLLING_INTERVAL = 3000;
 
     const url = makePollUrl(pollingReviewId);
+
+    // [DEBUG] 폴링 시작 로그
     console.groupCollapsed(
       `%c[Polling] Start EditReview (reviewId=${pollingReviewId})`,
       "color:#16a34a;font-weight:600"
     );
-    console.log("[Polling] URL:", url);
-    console.log("[Polling] Interval(ms):", POLLING_INTERVAL, "Max polls:", MAX_POLLS);
 
     const intervalId = setInterval(async () => {
       pollCount++;
-      console.groupCollapsed(
-        `%c[Polling] Attempt #${pollCount}`,
-        "color:#16a34a"
+      
+      // [로그 수정] 업로드한 이미지 개수(uploadCountRef.current)를 포함하여 출력
+      console.log(
+        `%c[펜딩 요청] %c상태 확인 요청 (시도 ${pollCount}) - 대상: ${uploadCountRef.current}장 \nURL: ${url}`,
+        "color: #f59e0b; font-weight: bold; font-size: 12px;", 
+        "color: #333;"
       );
 
       try {
@@ -383,31 +395,19 @@ export default function EditReview() {
           },
         });
 
-        console.log("[Polling] HTTP", res.status, res.statusText);
-        const ct = res.headers.get("content-type") || "";
-        console.log("[Polling] Content-Type:", ct);
-
         if (res.status === 401 || res.status === 403) {
-          const text = await res.text().catch(() => "");
-          console.warn("[Polling] Auth error body:", text?.slice(0, 200));
           throw new Error("로그인이 필요하거나 권한이 없습니다.");
         }
         if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          console.warn("[Polling] Non-OK body:", text?.slice(0, 200));
-          throw new Error(text || `이미지 상태 확인 실패: HTTP ${res.status}`);
-        }
-
-        if (!ct.includes("application/json")) {
-          const text = await res.text().catch(() => "");
-          console.warn("[Polling] Non-JSON body:", text?.slice(0, 200));
-          throw new Error(`예상치 못한 응답 타입(${ct}).`);
+          throw new Error(`이미지 상태 확인 실패: HTTP ${res.status}`);
         }
 
         const result = await res.json();
-        console.log("[Polling] Raw JSON:", result);
+        
+        // [추가 로그] 서버 응답 데이터 상세 출력
+        console.log(`%c[API 응답] %c${res.status} ${res.statusText}`, "color: #9333ea; font-weight: bold;", "color: #333;");
+        console.log(`%c[응답 데이터]`, "color: #9333ea; font-weight: bold;", result);
 
-        // ✅ data 배열 / data.imageStatuses 둘 다 대응
         let statuses = [];
         if (Array.isArray(result?.data)) {
           statuses = result.data;
@@ -415,14 +415,11 @@ export default function EditReview() {
           statuses = result.data.imageStatuses;
         }
 
-        console.log("[Polling] imageStatuses(raw):", statuses);
-
         if (!Array.isArray(statuses) || statuses.length === 0) {
           console.log("[Polling] statuses empty → keep waiting…");
           if (pollCount > MAX_POLLS) {
             throw new Error("이미지 상태 정보를 받지 못했습니다. (타임아웃)");
           }
-          console.groupEnd();
           return;
         }
 
@@ -431,63 +428,85 @@ export default function EditReview() {
           return { ...s, _statusNorm: norm };
         });
 
-        console.table(normalized);
-
         const pending = normalized.filter((s) => s._statusNorm === "PENDING").length;
         const rejected = normalized.filter((s) => s._statusNorm === "REJECTED").length;
         const approved = normalized.filter((s) => s._statusNorm === "APPROVED").length;
-
+        
+        // [로그] 상태 요약 출력
         console.log(
-          "[Polling] counts →",
-          "pending:", pending,
-          "rejected:", rejected,
-          "approved:", approved
+            `%c[상태 요약] %c대기: ${pending} | 승인: ${approved} | 거절: ${rejected}`,
+            "color: #2563eb; font-weight: bold;", 
+            "color: #333;"
         );
 
         if (pending > 0) {
-          console.log("[Polling] Branch = PENDING (계속 폴링)");
+          // 아직 PENDING이 남음
+          console.table(normalized); // 상세 테이블 출력
           if (pollCount > MAX_POLLS) {
             throw new Error("이미지 검증 시간이 초과되었습니다. 관리자에게 문의하세요.");
           }
-          console.groupEnd();
+          // 계속 폴링 진행
           return;
         }
 
         // 완료 지점 (PENDING 0)
         clearInterval(intervalId);
         setIsPollingImages(false);
-        console.log("[Polling] Branch = DONE (PENDING 0). Stop interval.");
+        console.log("[Polling] Branch = DONE. Stop interval.");
+        console.groupEnd(); // 그룹 닫기
 
         if (rejected > 0) {
-          console.log("[Polling] Branch = REJECTED 팝업 호출");
-          // ✅ 새로 업로드한 사진(프론트 미리보기) 숨기기
-          setNewPhotos([]);
-          // ✅ 페이지 유지 (nav(-1) 안 함)
-          openModal("해당 이미지는\n등록 기준에 맞지 않습니다.");
+            console.log("[Polling] Branch = REJECTED 포함됨.");
+            
+            setNewPhotos([]); // 대기열 비움
+
+            // 안전장치: 거절된 ID 목록
+            const rejectedIds = normalized
+              .filter(s => s._statusNorm === 'REJECTED')
+              .map(s => s.imageId || s.id);
+
+            // 최신 사진 목록 갱신
+            try {
+                const refreshRes = await apiFetch(`/user/review/${pollingReviewId}`, {
+                    method: 'GET',
+                });
+                const refreshData = await refreshRes.json();
+                if (refreshRes.ok && refreshData.success) {
+                    const latestPhotos = refreshData.data?.photoList || refreshData.data?.photo || [];
+                    
+                    // 클라이언트 필터링 (혹시 서버 반영 늦을까봐)
+                    const validPhotos = latestPhotos.filter(p => !rejectedIds.includes(p.id));
+                    
+                    setExistingPhotos(validPhotos);
+                }
+            } catch (refreshError) {
+                console.error("최신 사진 목록 갱신 실패:", refreshError);
+            }
+
+            openModal("등록 기준에 맞지 않는 이미지가 있어\n해당 이미지는 삭제 처리되었습니다.");
+
         } else {
-          console.log("[Polling] Branch = APPROVED 팝업 호출");
-          // APPROVED면 기존 UX 그대로: 모달 → 뒤로가기
+          console.log("[Polling] Branch = ALL APPROVED");
           openModal("확인되었습니다.", () => nav(-1));
         }
+
       } catch (err) {
         console.error("[Polling] Error:", err);
         clearInterval(intervalId);
         setIsPollingImages(false);
+        console.groupEnd();
         openModal(
           `리뷰는 수정되었으나, 이미지 검증 중 오류가 발생했습니다: ${err.message}`,
           () => nav(-1)
         );
-      } finally {
-        console.groupEnd();
       }
     }, POLLING_INTERVAL);
 
     return () => {
-      console.log("[Polling] Cleanup (unmount or deps change). Clearing interval.");
-      console.groupEnd();
+      console.log("[Polling] Cleanup. Clearing interval.");
       clearInterval(intervalId);
     };
-  }, [isPollingImages, pollingReviewId, nav, API_URL]);
+  }, [isPollingImages, pollingReviewId, nav]);
 
   if (!initialReview) {
     return (
@@ -623,7 +642,7 @@ export default function EditReview() {
                 </div>
               ))}
               {newPhotos.map((photo, index) => (
-                <div key={index} className="er-preview-item">
+                <div key={photo.preview} className="er-preview-item">
                   <img src={photo.preview} alt="새 이미지 미리보기" className="er-preview-img" />
                   <button
                     type="button"
@@ -655,7 +674,7 @@ export default function EditReview() {
                 aria-label="사진 업로드"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M4.68001 16.6666C4.29612 16.6666 3.97584 16.5383 3.71918 16.2816C3.46251 16.0249 3.3339 15.7044 3.33334 15.3199V4.67992C3.33334 4.29603 3.46195 3.97575 3.71918 3.71909C3.9764 3.46242 4.29668 3.33381 4.68001 3.33325H15.3208C15.7042 3.33325 16.0245 3.46186 16.2817 3.71909C16.5389 3.97631 16.6672 4.29659 16.6667 4.67992V15.3208C16.6667 15.7041 16.5383 16.0244 16.2817 16.2816C16.025 16.5388 15.7045 16.6671 15.32 16.6666H4.68001ZM4.68001 15.8333H15.3208C15.4486 15.8333 15.5661 15.7799 15.6733 15.6733C15.7806 15.5666 15.8339 15.4488 15.8333 15.3199V4.67992C15.8333 4.55159 15.78 4.43381 15.6733 4.32659C15.5667 4.21936 15.4489 4.16603 15.32 4.16659H4.68001C4.55168 4.16659 4.4339 4.21992 4.32668 4.32659C4.21945 4.43325 4.16612 4.55103 4.16668 4.67992V15.3208C4.16668 15.4485 4.22001 15.566 4.32668 15.6733C4.43334 15.7805 4.55084 15.8338 4.67918 15.8333M6.92334 13.7499H13.205C13.34 13.7499 13.4383 13.6896 13.5 13.5691C13.5617 13.4485 13.5533 13.3291 13.475 13.2108L11.7917 10.9508C11.7195 10.8608 11.6297 10.8158 11.5225 10.8158C11.4158 10.8158 11.3261 10.8608 11.2533 10.9508L9.34334 13.3658L8.15418 11.9283C8.0814 11.8488 7.99418 11.8091 7.89251 11.8091C7.7914 11.8091 7.70445 11.8541 7.63168 11.9441L6.67001 13.2108C6.58001 13.3291 6.56612 13.4485 6.62834 13.5691C6.69057 13.6896 6.7889 13.7499 6.92334 13.7499Z" fill="#4860BE"/>
+                  <path d="M4.68001 16.6666C4.29612 16.6666 3.97584 16.5383 3.71918 16.2816C3.46251 16.0249 3.3339 15.7044 3.33334 15.3199V4.67992C3.33334 4.29603 3.46195 3.97575 3.71918 3.71909C3.9764 3.46242 4.29668 3.33381 4.68001 3.33325H15.3208C15.7042 3.33325 16.0245 3.46186 16.2817 3.71909C16.5389 3.97631 16.6672 4.29659 16.6667 4.67992V15.3208C16.6667 15.7041 16.5383 16.0244 16.2817 16.2816C16.025 16.5388 15.7045 16.6671 15.32 16.6666H4.68001ZM4.68001 15.8333H15.3208C15.4486 15.8333 15.5661 15.7799 15.6733 15.6733C15.7806 15.5666 15.8339 15.4488 15.8333 15.3199V4.67992C15.8333 4.55159 15.78 4.43381 15.6733 4.32659C15.5667 4.21936 15.4489 4.16603 15.32 4.16659H4.68001C4.55168 4.16669 4.4339 4.21992 4.32668 4.32659C4.21945 4.43325 4.16612 4.55103 4.16668 4.67992V15.3208C4.16668 15.4485 4.22001 15.566 4.32668 15.6733C4.43334 15.7805 4.55084 15.8338 4.67918 15.8333M6.92334 13.7499H13.205C13.34 13.7499 13.4383 13.6896 13.5 13.5691C13.5617 13.4485 13.5533 13.3291 13.475 13.2108L11.7917 10.9508C11.7195 10.8608 11.6297 10.8158 11.5225 10.8158C11.4158 10.8158 11.3261 10.8608 11.2533 10.9508L9.34334 13.3658L8.15418 11.9283C8.0814 11.8488 7.99418 11.8091 7.89251 11.8091C7.7914 11.8091 7.70445 11.8541 7.63168 11.9441L6.67001 13.2108C6.58001 13.3291 6.56612 13.4485 6.62834 13.5691C6.69057 13.6896 6.7889 13.7499 6.92334 13.7499Z" fill="#4860BE"/>
                 </svg>
               </button>
               <span className="er-count">{description.length}/{MAX_DESC}</span>
