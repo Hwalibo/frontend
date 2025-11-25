@@ -84,34 +84,34 @@ export default function MyPage() {
     }
   ];
 
+  // 🔹 프로필 재조회 함수 (삭제 시에도 재사용)
+  async function fetchUserProfile() {
+    try {
+      if (!BACKEND_ON) {
+        setUserInfo(mockUserInfo);
+        return;
+      }
+
+      const response = await apiFetch(`/user/profile`, {
+        method: "GET"
+      });
+
+      if (!response.ok) throw new Error("서버 응답 오류");
+
+      const result = await response.json();
+      setUserInfo(result.data);
+      console.log("유저 정보", result.data);
+    } catch (e) {
+      console.error("프로필 조회 실패:", e);
+      setUserInfo(mockUserInfo);
+    }
+  }
+
   // 1. 내 프로필 조회
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        if (!BACKEND_ON) {
-          setUserInfo(mockUserInfo);
-          return;
-        }
-
-        const response = await apiFetch(`/user/profile`, {
-          method: "GET"
-        });
-
-        if (!response.ok) throw new Error("서버 응답 오류");
-
-        const result = await response.json();
-        setUserInfo(result.data);
-        console.log("유저 정보", result.data);
-      } catch (e) {
-        console.error("프로필 조회 실패:", e);
-        setUserInfo(mockUserInfo);
-      }
-    };
-
-    fetchData();
+    fetchUserProfile();
   }, [API_URL, BACKEND_ON]);
 
-  // 2. 내 리뷰 조회
   // 2. 내 리뷰 조회
   useEffect(() => {
     const fetchData = async () => {
@@ -191,6 +191,12 @@ export default function MyPage() {
   const performDeleteReview = async (reviewId) => {
     if (!BACKEND_ON) {
       setMyReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      // mock 모드에서는 로컬 numReview도 같이 줄여줌
+      setUserInfo((prev) =>
+        prev
+          ? { ...prev, numReview: Math.max(0, (prev.numReview || 0) - 1) }
+          : prev
+      );
       openModal("mock 모드: 리뷰가 삭제된 것처럼만 처리되었습니다.");
       return;
     }
@@ -231,7 +237,12 @@ export default function MyPage() {
         console.warn("리뷰 삭제 응답 JSON 파싱 실패:", err);
       }
 
+      // 리스트에서 해당 리뷰 제거
       setMyReviews((prev) => prev.filter((r) => r.id !== reviewId));
+
+      // ⭐ 리뷰 삭제 성공 후 프로필 재조회 → numReview 업데이트
+      await fetchUserProfile();
+
       openModal("리뷰가 성공적으로 삭제되었습니다.");
     } catch (e) {
       console.error("리뷰 삭제 실패:", e);
