@@ -103,6 +103,13 @@ function HomePage() {
       }
     };
 
+    // 📍 [수정된 부분 1] 옵션 객체를 여기서 정의합니다.
+    const geoOptions = {
+      enableHighAccuracy: true, // 정확도 우선 모드 (배터리 소모 조금 늘어남)
+      maximumAge: 0,            // 캐시된 위치 대신 현재 위치를 강제
+      timeout: 10000,           // 10초 내 응답 없으면 에러 처리
+    };
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -117,7 +124,8 @@ function HomePage() {
             "위치 정보를 가져올 수 없습니다. 기본 위치로 검색합니다."
           );
           fetchNearbyStations(37.4979, 127.0276);
-        }
+        },
+        geoOptions
       );
     } else {
       setNearbyError(
@@ -337,10 +345,9 @@ function HomePage() {
               )}
           </ul>
         </section>
-
         <footer className="ad-banner">
           <img src={adbanner} alt="광고" className="prdp-ad-image" />
-        </footer>
+         </footer>
       </div>
     </div>
   );

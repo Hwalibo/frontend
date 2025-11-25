@@ -152,3 +152,13 @@
 .pagination button:not(.active):not(:disabled):hover {
   background-color: #f4f4f4;
 }
+
+
+.prdp-ad-container {
+  display: flex;
+  align-items: center;
+  width: 500px;
+}
+.prdp-ad-container .prdp-ad-banner {
+  width: 100%;
+}

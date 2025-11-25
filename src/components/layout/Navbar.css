@@ -1,7 +1,7 @@
 .navbar{
     position: relative;
     width: 100%;
-    height: 100%;
+    height: 20%;
 }
 
 .nav-con{
@@ -12,6 +12,8 @@
     bottom:0px;
     background-color: #BFC8EF;
     border-radius: 15px 15px 0px 0px;
+
+    z-index: 1000;
    
 }
 
