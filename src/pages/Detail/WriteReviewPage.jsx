@@ -102,7 +102,7 @@ export default function WriteReviewPage() {
 
   // --- 🚀 [신규] 이미지 폴링(Polling) 상태 ---
   const [isPollingImages, setIsPollingImages] = useState(false);
-  const [pollingReviewId, setPollingReviewId] = useState(null);
+  const [pollingImageIds, setPollingImageIds] = useState([]);
   // --- 🚀 [신규] 끝 ---
 
   const [errors, setErrors] = useState({});
@@ -324,170 +324,155 @@ export default function WriteReviewPage() {
 
         console.log("[API] Photos Uploaded:", photoResult.data);
 
-        // --- 🚀 [수정 4] 사진 업로드 성공 시, "검사 중" 모달 띄우기 ---
-        console.log("[API] Photos Uploaded. Starting image validation polling...");
-        setPollingReviewId(createdReviewId);
-        setIsPollingImages(true); // "이미지 검증 중..." UI로 변경
-
-        // 🚀 유저 요청: "이미지의 적합성을 검사 중입니다."
-        setStatusModalMessage("이미지의 적합성을 검사 중입니다.");
-        setStatusModalAction(null); // 닫아도 폴링은 계속됨
-        setIsStatusModalOpen(true);
-        // ---------------------------------------------
+        // 주의: 백엔드 응답이 `[{ "id": 101, ... }, { "id": 102, ... }]` 형태라고 가정합니다.
+        // 만약 키 값이 "imageId"라면 `p.imageId`로 변경하세요.
+        const uploadedImages = photoResult.data; 
+        
+        if (Array.isArray(uploadedImages) && uploadedImages.length > 0) {
+            // DTO에 id 필드가 있다고 가정 (ReviewTempResponse나 Photo 엔티티 ID)
+            const ids = uploadedImages.map(img => img.id || img.imageId); 
+            
+            console.log("[API] Extracted Image IDs:", ids);
+            setPollingImageIds(ids); // 이미지 ID 목록 저장
+            setIsPollingImages(true); // 폴링 시작 플래그
+            
+            setStatusModalMessage("이미지의 적합성을 검사 중입니다.");
+            setStatusModalAction(null);
+            setIsStatusModalOpen(true);
+        } else {
+             // 사진 업로드는 성공했지만 ID를 못 찾은 경우 (예외적 상황)
+             setStatusModalMessage("리뷰와 사진이 등록되었습니다.");
+             setStatusModalAction(() => () => nav(-1));
+             setIsStatusModalOpen(true);
+        }
       } else {
-        // --- 🚀 [수정 5] 업로드할 사진이 없는 경우 ---
+        // 사진이 없는 경우
         setStatusModalMessage("리뷰가 성공적으로 등록되었습니다.");
-        setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
+        setStatusModalAction(() => () => nav(-1));
         setIsStatusModalOpen(true);
-        // alert("리뷰가 성공적으로 등록되었습니다.");
-        // nav(-1);
-        // ---------------------------------------
       }
     } catch (err) {
       console.error(err);
       if (createdReviewId && err.message.includes("사진")) {
-        // 🚀 [수정 6] alert -> modal
         setStatusModalMessage(err.message);
-        setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
+        setStatusModalAction(() => () => nav(-1));
         setIsStatusModalOpen(true);
-        // alert(err.message);
-        // nav(-1);
-      } else {
-        // 🚀 [수정 7] alert -> modal
+      } // 2. 🚀 [수정] 성별 관련 에러 메시지 깔끔하게 처리
+      else if (err.message.includes("다른 성별")) {
+        // "서버 내부 오류...", "등록 중 오류..." 다 무시하고 깔끔한 메시지만 출력
+        setStatusModalMessage("다른 성별의 화장실 리뷰는 작성할 수 없습니다.");
+        setStatusModalAction(null);
+        setIsStatusModalOpen(true);
+      }
+      // 3. 그 외 일반적인 에러 처리
+      else {
+        // 🚀 [수정] alert -> modal
         setStatusModalMessage(`등록 중 오류가 발생했습니다: ${err.message}`);
         setStatusModalAction(null);
         setIsStatusModalOpen(true);
-        // alert(`등록 중 오류가 발생했습니다: ${err.message}`);
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  // --- 🚀 [수정 8] 이미지 검증 폴링 useEffect (alert -> modal) ---
+  // --- 🚀 [수정 3] 이미지 검증 폴링 useEffect (Query Param 방식) ---
   useEffect(() => {
-    // isPollingImages가 true일 때만 이 훅을 실행
-    if (!isPollingImages || !pollingReviewId) {
+    // pollingImageIds에 값이 있을 때만 실행
+    if (!isPollingImages || pollingImageIds.length === 0) {
       return;
     }
 
-    console.log(`[Polling] Start polling for review ID: ${pollingReviewId}`);
+    console.log(`[Polling] Start polling for Image IDs: ${pollingImageIds.join(",")}`);
 
     const accessToken = localStorage.getItem("accessToken");
     if (!accessToken) {
-      // 🚀 [수정] alert -> modal
-      setStatusModalMessage(
-        "이미지 검증을 위해 로그인이 필요합니다. 이전 페이지로 이동합니다."
-      );
-      setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
+      setStatusModalMessage("이미지 검증을 위해 로그인이 필요합니다. 이전 페이지로 이동합니다.");
+      setStatusModalAction(() => () => nav(-1));
       setIsStatusModalOpen(true);
       setIsPollingImages(false);
       return;
     }
 
-    // 절대경로: `${API_URL}/api/v1/reviews/:id/image-status`
-    function makePollUrl(reviewId) {
-    //   const base = (API_URL || "").replace(/\/+$/, "");
-      return `/api/v1/reviews/${reviewId}/image-status`;
+    // 🚀 URL 생성: /reviews/image-status?imageIds=101,102
+    function makePollUrl(ids) {
+      const queryString = ids.join(",");
+      // apiFetch를 사용하므로 baseURL은 제외하고 경로만 작성 (api.js 설정에 따라 조정 필요)
+      // 만약 api.js가 '/api/v1'을 포함하지 않는다면 앞에 '/api/v1'을 붙이세요.
+      return `/reviews/image-status?imageIds=${queryString}`;
     }
 
     let pollCount = 0;
-    const MAX_POLLS = 100; // 최대 20번 시도 (약 1분)
-    const POLLING_INTERVAL = 3000; // 3초마다 검사
+    const MAX_POLLS = 20; // 횟수 조정
+    const POLLING_INTERVAL = 3000;
 
     const intervalId = setInterval(async () => {
       pollCount++;
       console.log(`[Polling] Attempt ${pollCount}...`);
 
       try {
-        const pollUrl = makePollUrl(pollingReviewId);
+        const pollUrl = makePollUrl(pollingImageIds);
         const response = await apiFetch(pollUrl, {
           method: "GET",
-          headers: {
-        
-            Authorization: `Bearer ${accessToken}`,
-          },
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
 
-        // 1) HTTP 상태 확인
         if (response.status === 401 || response.status === 403) {
-          const text = await response.text().catch(() => "");
-          throw new Error("로그인이 필요하거나 권한이 없습니다.");
+            throw new Error("로그인이 필요하거나 권한이 없습니다.");
         }
         if (!response.ok) {
-          const text = await response.text().catch(() => "");
-          throw new Error(text || `이미지 상태 확인 실패: HTTP ${response.status}`);
+            throw new Error(`이미지 상태 확인 실패: HTTP ${response.status}`);
         }
 
-        // 2) Content-Type 확인 및 JSON 파싱
-        const ct = response.headers.get("content-type") || "";
-        if (!ct.includes("application/json")) {
-          const text = await response.text().catch(() => "");
-          throw new Error(`예상치 못한 응답 타입(${ct}). 응답: ${text.slice(0, 200)}`);
-        }
         const result = await response.json();
-
-        // 3) 응답 스키마에서 상태 배열 추출
+        
+        // 🚀 응답 구조에 맞춰 데이터 추출: result.data.imageStatuses
         const statuses = result?.data?.imageStatuses;
 
-        // 빈 배열/없음 → 아직 준비 안됨 → 계속 대기
-        if (!Array.isArray(statuses) || statuses.length === 0) {
+        if (!Array.isArray(statuses)) {
+          // 아직 데이터가 없거나 형식이 다르면 대기
+          if (pollCount > MAX_POLLS) throw new Error("데이터 형식이 올바르지 않습니다.");
+          return;
+        }
+
+        // 하나라도 PENDING이면 계속 대기
+        const isStillPending = statuses.some((img) => img.status === "PENDING");
+
+        if (isStillPending) {
+          console.log("[Polling] Still PENDING...");
           if (pollCount > MAX_POLLS) {
-            throw new Error("이미지 상태 정보를 받지 못했습니다. (타임아웃)");
+            throw new Error("이미지 검증 시간이 초과되었습니다.");
           }
           return;
         }
 
-        const isStillPending = statuses.some((img) => img.status === "PENDING");
-
-        if (isStillPending) {
-          // --- 아직 검증 중 ---
-          console.log("[Polling] Still PENDING...");
-          if (pollCount > MAX_POLLS) {
-            throw new Error(
-              "이미지 검증 시간이 초과되었습니다. 관리자에게 문의하세요."
-            );
-          }
-          return; // 계속 대기
-        }
-
-        // --- 검증 완료 (모두 PENDING이 아님) ---
+        // --- 검증 완료 ---
         clearInterval(intervalId);
         setIsPollingImages(false);
 
-        const rejectedCount = statuses.filter(
-          (img) => img.status === "REJECTED"
-        ).length;
+        // REJECTED 확인
+        const rejectedCount = statuses.filter((img) => img.status === "REJECTED").length;
 
         if (rejectedCount > 0) {
-          setStatusModalMessage("해당 이미지는\n등록 기준에 맞지 않습니다.");
+          setStatusModalMessage(`업로드한 사진 중 ${rejectedCount}장이\n등록 기준에 맞지 않습니다.`);
         } else {
-          setStatusModalMessage("확인되었습니다.");
+          setStatusModalMessage("이미지 검수 완료! 등록되었습니다.");
         }
-        setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
-        setIsStatusModalOpen(true); // 이미 열려있을 수도 있으나 안전하게 호출
+        setStatusModalAction(() => () => nav(-1));
+        setIsStatusModalOpen(true);
+
       } catch (err) {
-        // --- 폴링 중 에러 발생 ---
         console.error("[Polling] Error:", err);
         clearInterval(intervalId);
         setIsPollingImages(false);
-
-        setStatusModalMessage(
-          `리뷰는 등록되었으나, 이미지 검증 중 오류가 발생했습니다: ${err.message}`
-        );
-        setStatusModalAction(() => () => nav(-1)); // 닫으면 이동
+        setStatusModalMessage(`이미지 검증 중 오류: ${err.message}`);
+        setStatusModalAction(() => () => nav(-1));
         setIsStatusModalOpen(true);
       }
     }, POLLING_INTERVAL);
 
-    // 컴포넌트 언마운트 시 (예: 유저가 뒤로가기) 인터벌 정리
-    return () => {
-      console.log("[Polling] Cleaning up interval.");
-      clearInterval(intervalId);
-    };
-  }, [isPollingImages, pollingReviewId, nav, API_URL]);
-  // --- 🚀 [수정 8] 끝 ---
-
+    return () => clearInterval(intervalId);
+  }, [isPollingImages, pollingImageIds, nav]);
   // (로딩 뷰는 기존과 동일)
   if (!toilet) {
     return (

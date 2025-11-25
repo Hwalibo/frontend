@@ -126,20 +126,51 @@ export default function PhotoReviewsPage() {
     }
   };
 
-  // 11. [수정] 첫 마운트 시 데이터 호출
+  /// 11. [수정] 첫 마운트 시 데이터 호출 및 성별 체크
   useEffect(() => {
-    // 'toilet' 정보가 없으면 상세 페이지로 돌려보냄
+    // 1) 화장실 정보가 없는 경우 방어
     if (!toilet) {
       alert("잘못된 접근입니다. 화장실 정보를 불러올 수 없습니다.");
       navigate(-1);
       return;
     }
 
-    // 첫 데이터 로드
+    // --- 🔒 [신규] 성별 접근 권한 체크 ---
+    const userGender = localStorage.getItem("gender"); // "M", "MALE", "F", "FEMALE" 등
+    const toiletGender = toilet.gender; // "M", "FEMALE" 등
+
+    console.log("🔒 성별 체크:", { userGender, toiletGender }); // 👈 개발자 도구 콘솔(F12)에서 확인해보세요!
+
+    // 로그인이 되어 있고, 성별 정보가 있을 때만 체크
+    if (userGender) {
+      // 1. 성별 정규화 (모두 대문자 'M' 또는 'F'로 변환)
+      // 예: "Female", "female", "F" -> 모두 "F"로 통일
+      const normUser = ["F", "FEMALE"].includes(userGender.toUpperCase()) ? "F" : "M";
+      const normToilet = ["F", "FEMALE"].includes(toiletGender.toUpperCase()) ? "F" : "M";
+
+      // 2. 성별 비교
+      if (normUser !== normToilet) {
+        // 🚨 차단 로직
+        alert("본인의 성별과 다른 화장실의 리뷰는 볼 수 없습니다.");
+        navigate(-1); // 뒤로가기
+        return; // 🛑 여기서 함수를 종료시켜서 fetchPhotos가 실행되지 않게 함
+      }
+    } else {
+      // (선택) 로그인 안 한 사람은 어떻게 할까요?
+      // 만약 "비로그인 유저는 아예 못 보게" 하려면 아래 주석을 해제하세요.
+      /*
+      alert("로그인이 필요한 서비스입니다.");
+      navigate("/login"); // 로그인 페이지로 이동
+      return;
+      */
+    }
+    // -----------------------------------
+
+    // 3) 위 검사를 모두 통과한 경우에만 데이터 로드
     fetchPhotos(true);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toilet, toiletId, navigate]); // 의존성 배열 (fetchPhotos는 useCallback이 아니므로 넣지 않음)
+  }, [toilet, toiletId, navigate]);
 
   // 로딩 UI (데이터 없을 때)
   if (!toilet) {
@@ -182,7 +213,7 @@ export default function PhotoReviewsPage() {
         </div>
         {/* 🚨 [신규] 광고 이미지 추가 */}
         <div className="prdp-ad-container">
-          <img src={adrec} alt="광고" className="prdp-ad-image" />
+          <img src={adrec} alt="광고" className="prdp-ad-banner" />
         </div>
 
         {/* 13. [수정] 필터 제거 (API가 정렬을 지원하지 않음) */}

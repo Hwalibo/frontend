@@ -13,7 +13,7 @@ function ReturnToSearchButton() {
     <div className="return-to-search-container">
       <button
         className="return-to-search-btn"
-        onClick={() => navigate('/')} // 클릭 시 홈('/')으로 이동
+        onClick={() => navigate('/homepage')} // 클릭 시 홈('/')으로 이동
       >
         검색으로 돌아가기
       </button>

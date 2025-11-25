@@ -34,7 +34,7 @@ export default function LoginPage() {
 개인정보 보호책임자 연락처
 개인정보 관련 문의는 아래로 연락하시기 바랍니다.
 
-이름: 조효원
+이름: 000
 이메일: hwalibo@gmail.com
 서비스명: 화리보
 

@@ -11,6 +11,7 @@ import location from '../../assets/ReviewPage/location.svg';
 import toiletimg from '../../assets/ReviewPage/toilet-img.svg';
 import rightsqure from '../../assets/ReviewPage/right-square-filled.svg';
 import ReturnToSearch from '../../components/layout/ReturnToSearch';
+import adbanner from '../../assets/ReviewPage/adbanner.svg';
 
 // 🚀 [수정 1] apiFetch를 import 합니다. (경로는 실제 위치에 맞게 조정하세요)
 import apiFetch from "../../api.js";
@@ -637,6 +638,10 @@ function ToiletDetailPage() {
         )}
 
       </div> {/* .review-container 끝 */}
+      {/* 🚀 [신규] 하단 고정 광고 배너 */}
+      <div className="fixed-ad-banner">
+        <img src={adbanner} alt="광고 배너" />
+      </div>
     </div>
   );
 }
