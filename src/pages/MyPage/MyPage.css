@@ -101,15 +101,20 @@
     background: rgba(191, 200, 239, 0.32);
     padding: 13px 16px;
     
-    width: cal(100%-30px);
+    width: 350px;
+   
     
     
 }
 
 .review-tags{
+    display: flex;
+     flex-wrap: wrap;
     padding-top: 5px;
     display: flex;
     gap: 5px;
+    white-space: nowrap;
+
 }
 
 .tag{
@@ -129,6 +134,26 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.tag-dis{
+   padding: 0px 10px;
+    height: 25px;
+
+    border-radius: 5px;
+    border: 0.5px solid #627EF1;
+    background: #FFF;
+
+    color: #000;
+    text-align: center;
+
+    font-size: 10px;
+    
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
 }
 
 .review-header{

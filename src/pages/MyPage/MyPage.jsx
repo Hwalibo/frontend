@@ -385,6 +385,15 @@ export default function MyPage() {
                 )}
 
                 <div className="review-tags">
+                    {/* ✅ isDis 태그 추가 */}
+                    {review.isDis && (
+                      <span className="tag-dis">
+                        장애인 화장실
+                      </span>
+                    )}
+
+
+
                   {review.tag.map((t, index) => (
                     <span key={index} className="tag">
                       {tagMap[t] || t}
