@@ -364,7 +364,7 @@ export default function MyPage() {
                   <h3><img src={paper} alt="" />{review.name}</h3>
                   <p>
                     {review.line}호선&nbsp;·{" "}
-                    {review.gender === "FEMALE" ? (
+                    {review.gender === "F" ? (
                       <span className="fe">&nbsp;여자</span>
                     ) : (
                       <span className="ma">&nbsp;남자</span>
