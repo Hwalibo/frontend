@@ -100,13 +100,33 @@ export default function PhotoReviewsPage() {
         // headers: 객체 불필요
       });
 
+      // 🚀 [핵심 수정] 403(Forbidden) 에러가 오면 즉시 차단
+      if (response.status === 403) {
+        // 백엔드 메시지: "접근 권한이 없습니다. 해당 성별의 리뷰 사진이 아닙니다."
+        // 메시지를 읽어서 띄우거나, 우리가 정한 문구를 띄웁니다.
+        const errResult = await response.json(); 
+        const serverMessage = errResult.message || "접근 권한이 없습니다.";
+
+        // 사용자에게 알림
+        alert(serverMessage); // 서버 메시지를 그대로 띄우려면 이걸 쓰세요.
+        
+        navigate(-1); // 뒤로가기
+        return; // 함수 종료
+      }
+
+      // 401(Unauthorized) 처리
+      if (response.status === 401) {
+        alert("로그인이 필요한 서비스입니다.");
+        navigate(-1);
+        return;
+      }
+
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.message || "데이터를 불러오는 데 실패했습니다.");
       }
 
       if (result.success && result.data) {
-        // 10. [수정] 기존 배열에 새 데이터를 덧붙임
         setPhotos((prev) =>
           isInitialLoad
             ? result.data.content
@@ -119,60 +139,30 @@ export default function PhotoReviewsPage() {
       }
     } catch (err) {
       console.error(err);
-      // 🚀 [수정] apiFetch가 던진 401(로그인) 에러 메시지도 여기서 처리됩니다.
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  /// 11. [수정] 첫 마운트 시 데이터 호출 및 성별 체크
+  // 2. [수정] useEffect는 이제 아주 단순해집니다.
   useEffect(() => {
-    // 1) 화장실 정보가 없는 경우 방어
     if (!toilet) {
       alert("잘못된 접근입니다. 화장실 정보를 불러올 수 없습니다.");
       navigate(-1);
       return;
     }
 
-    // --- 🔒 [신규] 성별 접근 권한 체크 ---
-    const userGender = localStorage.getItem("gender"); // "M", "MALE", "F", "FEMALE" 등
-    const toiletGender = toilet.gender; // "M", "FEMALE" 등
-
-    console.log("🔒 성별 체크:", { userGender, toiletGender }); // 👈 개발자 도구 콘솔(F12)에서 확인해보세요!
-
-    // 로그인이 되어 있고, 성별 정보가 있을 때만 체크
-    if (userGender) {
-      // 1. 성별 정규화 (모두 대문자 'M' 또는 'F'로 변환)
-      // 예: "Female", "female", "F" -> 모두 "F"로 통일
-      const normUser = ["F", "FEMALE"].includes(userGender.toUpperCase()) ? "F" : "M";
-      const normToilet = ["F", "FEMALE"].includes(toiletGender.toUpperCase()) ? "F" : "M";
-
-      // 2. 성별 비교
-      if (normUser !== normToilet) {
-        // 🚨 차단 로직
-        alert("본인의 성별과 다른 화장실의 리뷰는 볼 수 없습니다.");
-        navigate(-1); // 뒤로가기
-        return; // 🛑 여기서 함수를 종료시켜서 fetchPhotos가 실행되지 않게 함
-      }
-    } else {
-      // (선택) 로그인 안 한 사람은 어떻게 할까요?
-      // 만약 "비로그인 유저는 아예 못 보게" 하려면 아래 주석을 해제하세요.
-      /*
-      alert("로그인이 필요한 서비스입니다.");
-      navigate("/login"); // 로그인 페이지로 이동
-      return;
-      */
-    }
-    // -----------------------------------
-
-    // 3) 위 검사를 모두 통과한 경우에만 데이터 로드
+    // 🚀 [삭제] 기존의 복잡했던 성별 체크(localStorage) 로직을 전부 삭제했습니다.
+    // 백엔드가 403을 던져주므로, 프론트는 그냥 요청만 보내면 됩니다.
+    
     fetchPhotos(true);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toilet, toiletId, navigate]);
 
-  // 로딩 UI (데이터 없을 때)
+
+  // (UI 렌더링 부분은 기존과 100% 동일)
   if (!toilet) {
     return (
       <div className="photo-reviews-page">

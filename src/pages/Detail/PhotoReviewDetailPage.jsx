@@ -85,6 +85,21 @@ export default function PhotoReviewDetailPage() {
           // headers: 객체 불필요
         });
 
+        // 🚀 [핵심 수정] 403(Forbidden) 에러 처리 (성별 제한)
+        if (response.status === 403) {
+          // 사용자에게 알림
+          alert("다른 성별의 화장실 포토 리뷰는 볼 수 없습니다.");
+          navigate(-1); // 뒤로가기
+          return; // 함수 종료
+        }
+
+        // 401(Unauthorized) 처리
+        if (response.status === 401) {
+          alert("로그인이 필요한 서비스입니다.");
+          navigate(-1);
+          return;
+        }
+
         const result = await response.json();
         if (!response.ok) {
           throw new Error(result.message || "데이터를 불러오는 데 실패했습니다.");
@@ -106,8 +121,17 @@ export default function PhotoReviewDetailPage() {
 
       } catch (err) {
         console.error(err);
-        // 🚀 [수정 5] apiFetch가 던진 401(로그인) 에러 메시지도 여기서 처리됩니다.
-        setError(err.message);
+        
+        // 🚀 [추가] apiFetch가 내부적으로 에러를 던졌을 때도 처리
+        if (err.message.includes("403") || err.message.includes("권한") || err.message.includes("성별")) {
+           alert("다른 성별의 화장실 포토 리뷰는 볼 수 없습니다.");
+           navigate(-1);
+        } else if (err.message.includes("401") || err.message.includes("로그인")) {
+           alert("로그인이 필요합니다.");
+           navigate(-1);
+        } else {
+           setError(err.message);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -115,7 +139,7 @@ export default function PhotoReviewDetailPage() {
 
     fetchData();
 
-  }, [toiletId, photoId, navigate, BACKEND_ON]); // 🚀 [수정 6] API_URL 의존성 제거
+  }, [toiletId, photoId, navigate, BACKEND_ON]);
 
   // 5. 로딩 및 에러 UI
   if (isLoading || !photoData) {
