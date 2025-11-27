@@ -2,7 +2,7 @@ import { useState } from "react";
 import "./ChangeName.css";
 import TopHeader from "../../components/layout/TopHeader";
 import { useNavigate } from "react-router-dom";
-import Popup from "../../components/layout/AlertModal"; // ✅ 모달 컴포넌트 (대문자!)
+import Popup from "../../components/layout/AlertModal"; 
 
 export default function ChangeName() {
   const BACKEND_ON = true; // 실제 백엔드 쓸 때 true 로
@@ -12,7 +12,7 @@ export default function ChangeName() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ 모달 상태
+  // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalAction, setModalAction] = useState(null); // 닫을 때 실행할 추가 동작(옵션)
@@ -77,7 +77,7 @@ export default function ChangeName() {
       }
 
       if (data.success) {
-        // ✅ 성공: 팝업 띄우고, 닫을 때 /mypage 로 이동
+        //  성공: 팝업 띄우고, 닫을 때 /mypage 로 이동
         openModal("닉네임이 성공적으로 변경되었습니다!", () => navigate("/mypage"));
       } else {
         openModal(data.message || "닉네임 변경에 실패했습니다.");
@@ -110,7 +110,7 @@ export default function ChangeName() {
         </div>
       </div>
 
-      {/* ✅ 닉네임 변경 관련 알림 모달 */}
+      {/*  닉네임 변경 관련 알림 모달 */}
       <Popup
         isOpen={isModalOpen}
         message={modalMessage}

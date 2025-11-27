@@ -20,10 +20,10 @@ export default function MyPage() {
   const [userInfo, setUserInfo] = useState(null);
   const [myReviews, setMyReviews] = useState(null);
 
-  // 🔹 모달 상태
+  //  모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
-  const [modalAction, setModalAction] = useState(null); // 확인 시 실행할 함수 (있으면 confirm 모드)
+  const [modalAction, setModalAction] = useState(null); // 확인 시 실행할 함수 
 
   const openModal = (message, action = null) => {
     setModalMessage(message);
@@ -46,7 +46,7 @@ export default function MyPage() {
     setModalMessage("");
   };
 
-  // ✅ Mock Data
+  // Mock Data
   const mockUserInfo = {
     name: "김도영",
     profile: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ20mlA7nl2LGw9OZ3osAMsbKTZ30IvyijtXw&s",
@@ -84,7 +84,7 @@ export default function MyPage() {
     }
   ];
 
-  // 🔹 프로필 재조회 함수 (삭제 시에도 재사용)
+  // 프로필 재조회 함수 (삭제 시에도 재사용)
   async function fetchUserProfile() {
     try {
       if (!BACKEND_ON) {
@@ -117,7 +117,7 @@ export default function MyPage() {
     const fetchData = async () => {
       try {
         if (!BACKEND_ON) {
-          setMyReviews(mockMyReviews);  // mock은 이미 배열
+          setMyReviews(mockMyReviews);  // mock
           return;
         }
 
@@ -142,7 +142,7 @@ export default function MyPage() {
 
         const result = JSON.parse(text);
 
-        // 🔥 여기서 reviews 배열만 꺼내서 넣기
+        // reviews 배열만 꺼내서 넣기
         const reviews = Array.isArray(result.data?.reviews)
           ? result.data.reviews
           : [];
@@ -212,7 +212,7 @@ export default function MyPage() {
       method: "DELETE",
     };
 
-    // 🔍 요청 정보 로그
+    // 요청 정보 로그
     console.log("[리뷰 삭제 요청]", {
       url,
       ...options,
@@ -221,7 +221,7 @@ export default function MyPage() {
     try {
       const response = await apiFetch(url, options);
 
-      // 🔍 응답 로그 (raw text까지)
+      // 응답 로그 (raw text까지)
       const text = await response.text();
       console.log("[리뷰 삭제 응답 raw]", response.status, text);
 
@@ -240,7 +240,7 @@ export default function MyPage() {
       // 리스트에서 해당 리뷰 제거
       setMyReviews((prev) => prev.filter((r) => r.id !== reviewId));
 
-      // ⭐ 리뷰 삭제 성공 후 프로필 재조회 → numReview 업데이트
+      // 리뷰 삭제 성공 후 프로필 재조회 → numReview 업데이트
       await fetchUserProfile();
 
       openModal("리뷰가 성공적으로 삭제되었습니다.");
@@ -250,7 +250,7 @@ export default function MyPage() {
     }
   };
 
-  // 🔹 회원 탈퇴 실제 요청
+  // 회원 탈퇴 실제 요청
   const performWithdraw = async () => {
     if (!BACKEND_ON) {
       openModal("mock 모드: 실제로 회원 탈퇴는 되지 않습니다.");
@@ -306,12 +306,12 @@ export default function MyPage() {
     }
   };
 
-  // 🔹 삭제 버튼 클릭 시 → 확인/취소 모달
+  // 삭제 버튼 클릭 시 → 확인/취소 모달
   const handleDeleteReview = (reviewId) => {
     openModal("정말 이 리뷰를 삭제하시겠습니까?", () => performDeleteReview(reviewId));
   };
 
-  // 🔹 회원탈퇴 버튼 클릭 시 → 확인/취소 모달
+  // 회원탈퇴 버튼 클릭 시 → 확인/취소 모달
   const handleWithdrawClick = () => {
     openModal(
       "정말 회원 탈퇴를 진행하시겠습니까? ",
@@ -396,7 +396,7 @@ export default function MyPage() {
                 )}
 
                 <div className="review-tags">
-                    {/* ✅ isDis 태그 추가 */}
+                    {/* isDis 태그 추가 */}
                     {review.isDis && (
                       <span className="tag-dis">
                         장애인 화장실
@@ -426,7 +426,7 @@ export default function MyPage() {
         </div>
       </div>
 
-      {/* 🔹 모달: 삭제 확인 시엔 취소 버튼도 보이고, 일반 알림 땐 확인만 */}
+      {/* 모달: 삭제 확인 시엔 취소 버튼도 보이고, 일반 알림 땐 확인만 */}
       <Popup
         isOpen={isModalOpen}
         message={modalMessage}

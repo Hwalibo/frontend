@@ -12,7 +12,7 @@ export default function TopHeader() {
     const [modalMessage, setModalMessage] = useState("");
     const [modalCloseAction, setModalCloseAction] = useState(null);
 
-    // ✅ refreshToken 존재 여부로 로그인 상태 초기화
+    // refreshToken 존재 여부로 로그인 상태 초기화
     useEffect(() => {
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
@@ -22,7 +22,7 @@ export default function TopHeader() {
         }
     }, []); 
 
-    // ⭐ 인터셉터로부터 강제 로그아웃 이벤트 수신
+    //  인터셉터로부터 강제 로그아웃 이벤트 수신
     useEffect(() => {
         const handleForceLogout = () => {
             setIsLoggedIn(false);
@@ -51,7 +51,7 @@ export default function TopHeader() {
         setModalCloseAction(null);
     };
 
-    // 🔽 로그아웃 핸들러
+    // 로그아웃 핸들러
     const handleLogout = async () => {
         const refreshToken = localStorage.getItem('refreshToken');
 
@@ -78,17 +78,17 @@ export default function TopHeader() {
             messageToShow = '로그아웃 API 통신에 실패했습니다. 로컬 토큰을 강제로 삭제합니다.';
         
         } finally {
-            // ✅ 1) 토큰 삭제
+            //  1) 토큰 삭제
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
 
-            // ✅ 2) 헤더 상태 업데이트 → 로그아웃 버튼 숨김
+            //  2) 헤더 상태 업데이트 → 로그아웃 버튼 숨김
             setIsLoggedIn(false);
 
-            // ✅ 3) 안내 모달 (있어도 되고, 빼도 됨)
+            // 3) 안내 모달 (있어도 되고, 빼도 됨)
             showModal(messageToShow || '로그아웃되었습니다.');
 
-            // ✅ 4) 바로 메인으로 이동 (모달에 의존 X)
+            //  4) 바로 메인으로 이동 (모달에 의존 X)
             navigate('/');
         }
     };
@@ -101,7 +101,7 @@ export default function TopHeader() {
                     
                     {isLoggedIn && (
                         <div className="header-actions">
-                            {/* ✅ 여기서는 오직 handleLogout만 호출 */}
+                            {/* 여기서는 오직 handleLogout만 호출 */}
                             <div className="log-out" onClick={handleLogout}>
                                 로그아웃
                             </div>

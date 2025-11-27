@@ -127,7 +127,7 @@ export default function EditReview() {
   const uid = useId();
   const MAX_DESC = 1000;
 
-  // 🚀 이미지 검증(PENDING) 폴링 상태
+  // 이미지 검증(PENDING) 폴링 상태
   const [isPollingImages, setIsPollingImages] = useState(false);
   // 새로 업로드된 이미지들의 imageId 목록
   const [uploadedImageIds, setUploadedImageIds] = useState([]);
@@ -166,7 +166,7 @@ export default function EditReview() {
       "[EditReview] handlePhotoUploadClick existing/new:",
       existingPhotos.length,
       newPhotos.length
-    ); // 🔍 디버그
+    ); //  디버그
 
     if (existingPhotos.length + newPhotos.length >= MAX_PHOTOS) {
       openModal(`사진은 최대 ${MAX_PHOTOS}장까지 업로드할 수 있습니다.`);
@@ -199,7 +199,7 @@ export default function EditReview() {
     }
   };
 
-  // ✅ 기존 이미지 삭제 시, 즉시 백엔드에 삭제 요청
+  // 기존 이미지 삭제 시, 즉시 백엔드에 삭제 요청
   const handleDeleteExisting = async (idToDelete) => {
     console.log("[EditReview] handleDeleteExisting:", idToDelete); // 🔍 디버그
 
@@ -258,7 +258,7 @@ export default function EditReview() {
     }
   };
 
-  // ✅ 프론트엔드에서 새 이미지 삭제 (전송 목록에서 제외됨)
+  // 프론트엔드에서 새 이미지 삭제 (전송 목록에서 제외됨)
   const handleDeleteNew = (indexToRemove) => {
     console.log("[EditReview] handleDeleteNew index:", indexToRemove); // 🔍
 
@@ -367,7 +367,7 @@ export default function EditReview() {
           );
         }
 
-        // 📌 서버에서 내려주는 imageId 저장
+        // 서버에서 내려주는 imageId 저장
         const createdPhotos = photosData?.data?.createdPhotos ?? [];
         console.log("[EditReview] createdPhotos:", createdPhotos); // 🔍
 
@@ -400,7 +400,7 @@ export default function EditReview() {
             imageIdsFromServer
           ); // 🔍
 
-          // ✅ 업로드 성공 → 이미지 적합성 검증 폴링 시작
+          //  업로드 성공 / 이미지 적합성 검증 폴링
           setIsPollingImages(true);
           openModal("이미지의 적합성을 검사 중입니다.");
         } else {
@@ -427,7 +427,7 @@ export default function EditReview() {
     }
   };
 
-  // 🚀 새 이미지에 대한 “검수(PENDING)” 폴링: /api/v1/reviews/image-status?imageIds=101,102
+  //  새 이미지에 대한 검수(PENDING)
   useEffect(() => {
     console.log(
       "[EditReview] polling effect deps changed:",
@@ -554,7 +554,7 @@ export default function EditReview() {
         });
 
         console.log("[Polling] normalized statuses:");
-        console.table(normalized); // 🔍 더 보기 좋게
+        console.table(normalized); 
 
         const pending = normalized.filter((s) => s._isPending).length;
         const rejected = normalized.filter((s) => s._isRejected).length;
@@ -589,7 +589,7 @@ export default function EditReview() {
 
           console.log("[Polling] rejectedIds:", rejectedIds); // 🔍
 
-          // 📌 REJECTED가 뜬 이미지들만 프론트에서 제거
+          //  REJECTED가 뜬 이미지들만 프론트에서 제거
           setNewPhotos((prev) =>
             prev.filter((p) => !rejectedIds.includes(p.imageId))
           );
@@ -597,7 +597,7 @@ export default function EditReview() {
             prev.filter((id) => !rejectedIds.includes(id))
           );
 
-          // 👉 리뷰 저장 + 부적합 이미지 삭제를 한 번에 안내
+          //  리뷰 저장 + 부적합 이미지 삭제를 한 번에 안내
           openModal(
             "리뷰가 저장되었습니다.\n리뷰 작성에 알맞지 않은 이미지는 삭제 처리 되었습니다.",
             () => nav(-1)
