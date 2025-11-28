@@ -1,27 +1,20 @@
-/* 버튼을 오른쪽 정렬하기 위한 컨테이너 */
 .return-to-search-container {
   display: flex;
-  justify-content: flex-end; /* 버튼을 오른쪽으로 보냄 */
+  justify-content: flex-end; 
   padding: 10px 20px; 
   background-color: #fff;
 }
 
-/* '검색으로 돌아가기' 버튼 스타일 */
 .return-to-search-btn {
-  /* 1. 요청하신 스타일 */
   width: 105px;
   height: 30px;
   flex-shrink: 0;
   border-radius: 20px;
   border: 0.5px solid #4860BE;
-
-  /* 2. 텍스트 및 기타 스타일 */
   background-color: #fff; 
   color: #4860BE; 
   font-size: 11px; 
   font-weight: 500;
-  
-  /* 3. 텍스트를 버튼 중앙에 배치 */
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./HomePage.css";
-
 import searchIcon from "../../assets/searchbar.svg";
 import TopHeader from "../../components/layout/TopHeader";
-
 import adbanner from "../../assets/ReviewPage/ad_Rectangle.svg";
-
-// 🚀 [수정 1] apiFetch를 import 합니다. (경로는 실제 위치에 맞게 조정하세요)
 import apiFetch from "../../api.js";
 
 const MOCK_SEARCH_RESULTS = [
@@ -25,8 +21,6 @@ const FALLBACK_NEARBY_STATIONS = [
 function HomePage() {
   const navigate = useNavigate();
 
-  // 🚀 [수정 2] apiFetch가 URL을 관리하므로 이 변수는 더 이상 필요하지 않습니다.
-  // const API_URL = import.meta.env.VITE_APP_BACKEND_URL;
   const BACKEND_ON = true;
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,7 +34,7 @@ function HomePage() {
   const [nearbyError, setNearbyError] = useState(null);
   const [searchError, setSearchError] = useState(null);
 
-  // --- '가까운 역' API 호출 (useEffect) ---
+  
   useEffect(() => {
     const fetchNearbyStations = async (latitude, longitude) => {
       setIsLoadingNearby(true);
@@ -52,15 +46,10 @@ function HomePage() {
         return;
       }
 
-      // 🚀 [수정 3] accessToken을 직접 가져오는 로직 (getItem, if문) 삭제
-      // apiFetch가 토큰을 자동으로 처리합니다.
-
       try {
-        // 🚀 [수정 4] fetch -> apiFetch, URL 경로만 전달, headers 객체 삭제
+        
         const response = await apiFetch("/station/suggest", {
-          method: "POST",
-          // 'Content-Type': 'application/json', // apiFetch 기본값
-          // 'Authorization': Bearer ${accessToken}, // apiFetch가 자동 추가
+          method: "POST",        
           body: JSON.stringify({ latitude, longitude }),
         });
         if (!response.ok)
@@ -69,7 +58,6 @@ function HomePage() {
         const result = await response.json();
 
         if (result.success) {
-          // 🚨 [수정] Array.isArray()로 `result.data.stations` (객체 안의 배열)이 배열인지 명확히 확인
           if (Array.isArray(result.data.stations)) {
             const transformedData = result.data.stations.map(
               (stationName, index) => ({
@@ -79,12 +67,12 @@ function HomePage() {
             );
             setNearbyStations(transformedData);
           } else {
-            // API가 성공(success:true)했지만 data.stations가 배열이 아닌 경우 (null, {} 등)
+            
             console.warn(
               "API Error (Nearby): `result.data.stations` is not an array.",
               result.data
             );
-            setNearbyStations([]); // 빈 배열로 설정하여 오류 방지
+            setNearbyStations([]); 
           }
         } else {
           throw new Error(
@@ -93,7 +81,7 @@ function HomePage() {
         }
       } catch (err) {
         console.error("API Error (Nearby):", err.message);
-        // 🚀 [수정] apiFetch가 던진 401(로그인) 에러 메시지도 여기서 처리됩니다.
+        
         setNearbyError(
           err.message || "데이터를 불러오지 못했습니다. (더미 데이터를 표시합니다.)"
         );
@@ -103,11 +91,11 @@ function HomePage() {
       }
     };
 
-    // 📍 [수정된 부분 1] 옵션 객체를 여기서 정의합니다.
+    
     const geoOptions = {
-      enableHighAccuracy: true, // 정확도 우선 모드 (배터리 소모 조금 늘어남)
-      maximumAge: 0,            // 캐시된 위치 대신 현재 위치를 강제
-      timeout: 10000,           // 10초 내 응답 없으면 에러 처리
+      enableHighAccuracy: true, 
+      maximumAge: 0,            
+      timeout: 10000,           
     };
 
     if (navigator.geolocation) {
@@ -133,9 +121,9 @@ function HomePage() {
       );
       fetchNearbyStations(37.4979, 127.0276);
     }
-  }, [BACKEND_ON]); // 🚀 [수정] API_URL 의존성 제거
+  }, [BACKEND_ON]); 
 
-  // --- 검색어 디바운싱 Effect ---
+  
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedTerm(searchTerm);
@@ -145,7 +133,7 @@ function HomePage() {
     };
   }, [searchTerm]);
 
-  // --- 검색 API 호출 Effect ---
+  
   useEffect(() => {
     const fetchSearchResults = async (query) => {
       setIsSearching(true);
@@ -160,17 +148,12 @@ function HomePage() {
         return;
       }
 
-      // 🚀 [수정 5] accessToken을 직접 가져오는 로직 (getItem, if문) 삭제
-      // apiFetch가 토큰을 자동으로 처리합니다.
-
       try {
-        // 🚀 [수정 6] fetch -> apiFetch, URL 경로만 전달, headers 객체 삭제
+        
         const response = await apiFetch(
           `/station/search?q=${encodeURIComponent(query)}`,
           {
             method: "GET",
-            // 'Content-Type': 'application/json', // apiFetch 기본값
-            // 'Authorization': Bearer ${accessToken}, // apiFetch가 자동 추가
           }
         );
 
@@ -182,23 +165,23 @@ function HomePage() {
         const result = await response.json();
 
         if (result.success) {
-          // 🚨 [수정] Array.isArray()로 `result.data`가 배열인지 명확히 확인
+          
           if (Array.isArray(result.data)) {
             setSearchResults(result.data);
           } else {
-            // API가 성공(success:true)했지만 data가 배열이 아닌 경우 (null, {} 등)
+            
             console.warn(
               "API Error (Search): `result.data` is not an array.",
               result.data
             );
-            setSearchResults([]); // 빈 배열로 설정
+            setSearchResults([]); 
           }
         } else {
           throw new Error(result.message || "검색 결과를 불러오지 못했습니다.");
         }
       } catch (err) {
         console.error("Search API Error:", err.message);
-        // 🚀 [수정] apiFetch가 던진 401(로그인) 에러 메시지도 여기서 처리됩니다.
+        
         setSearchError(err.message);
         setSearchResults([]);
       } finally {
@@ -211,7 +194,7 @@ function HomePage() {
     } else {
       setSearchResults([]);
     }
-  }, [debouncedTerm, BACKEND_ON]); // 🚀 [수정] API_URL 의존성 제거
+  }, [debouncedTerm, BACKEND_ON]); 
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -251,8 +234,6 @@ function HomePage() {
               <img src={searchIcon} alt="검색" />
             </button>
           </section>
-
-          {/* --- 검색 결과창 --- */}
           {searchTerm.trim() !== "" && (
             <ul className="search-results">
               {isSearching && <li className="result-item-info">검색 중...</li>}
@@ -262,8 +243,6 @@ function HomePage() {
                   {searchError}
                 </li>
               )}
-
-              {/* [수정] searchResults가 확실히 배열이므로 .length 오류 없음 */}
               {!isSearching &&
                 !searchError &&
                 searchResults.length === 0 && (
@@ -307,8 +286,6 @@ function HomePage() {
             네이버지도 앱으로 보기
           </button>
         </section>
-
-        {/* --- '가까운 역' 섹션 --- */}
         <section className="nearby-stations-section">
           {nearbyError && (
             <p
@@ -323,8 +300,6 @@ function HomePage() {
           )}
           <ul className="nearby-stations-list">
             {isLoadingNearby && <li>가까운 역을 불러오는 중...</li>}
-
-            {/* [수정] nearbyStations가 확실히 배열이므로 .length 오류 없음 */}
             {!isLoadingNearby &&
               nearbyStations.length > 0 &&
               nearbyStations.map((station) => (

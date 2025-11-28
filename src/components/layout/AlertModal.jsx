@@ -1,14 +1,12 @@
-// src/components/layout/AlertModal.jsx
-
 import React from "react";
 import "./AlertModal.css";
 
 export default function AlertModal({
   isOpen,
   message,
-  onClose,          // 확인 버튼 클릭
-  showCancel = false, // 기본값: false → 확인 버튼만
-  onCancel,         // 취소 버튼 클릭 (옵션)
+  onClose,          
+  showCancel = false, 
+  onCancel,         
 }) {
   if (!isOpen) return null;
 
