@@ -10,7 +10,6 @@
   height: 100vh;         
   margin: 0 auto;
   padding: 0;
-  /* border: 0.5px solid rgb(80, 80, 80); */
 }
 
 @media (min-width: 500px) {

@@ -17,9 +17,6 @@ import WriteReviewPage from './pages/Detail/WriteReviewPage';
 import AllReviewsPage from './pages/Detail/AllReviewsPage';
 import PhotoReviewsPage from './pages/Detail/PhotoReviewsPage';
 import PhotoReviewDetailPage from './pages/Detail/PhotoReviewDetailPage';
-
-// [신규] 백엔드 리다이렉션을 처리할 콜백 컴포넌트 임포트
-// (경로는 AuthCallback.jsx 파일 위치에 맞게 조정하세요)
 import AuthCallback from './pages/AuthCallback'; 
 
 
@@ -29,7 +26,6 @@ function App() {
     <ScrollToTop />
       <Routes>
         
-        {/* --- 기존 라우트 (유지) --- */}
         <Route path="/homepage" element={<HomePage />} />
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/" element={<LoginPage />} />
@@ -42,12 +38,6 @@ function App() {
         <Route path="/toilet/:toiletId/write" element={<WriteReviewPage />} />
         <Route path="/toilet/:toiletId/photos" element={<PhotoReviewsPage />} />
         <Route path="/toilet/:toiletId/photo/:photoId" element={<PhotoReviewDetailPage />} />
-
-
-        {/* [신규] OAuth2 콜백 라우트 추가
-          백엔드가 로그인 성공 후 ?accessToken=...&refreshToken=... 를
-          붙여서 이 경로로 사용자를 리다이렉트시킵니다.
-        */}
         <Route path="/auth/callback" element={<AuthCallback />} />
 
       </Routes>

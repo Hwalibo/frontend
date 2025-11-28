@@ -1,11 +1,7 @@
-/* PhotoReviewsPage.css */
-
-/* [수정] 클래스 이름 변경 */
 .photo-reviews-container {
   padding: 16px;
 }
 
-/* [수정] 클래스 이름 변경 */
 .photo-reviews-header {
   padding: 12px;
   background-color: none;
@@ -18,14 +14,12 @@
   gap: 12px;
 }
 
-/* [수정] 클래스 이름 변경 */
 .photo-reviews-header-info {
   display: flex;
   align-items: center; 
   gap: 20px; 
 }
 
-/* [수정] h3 스타일 (AllReviewsPage와 동일) */
 .photo-reviews-header h3 {
   margin: 0; 
   font-size: 24px;
@@ -33,7 +27,6 @@
   font-family: Pretendard;
 }
 
-/* [수정] p 스타일 (AllReviewsPage와 동일) */
 .photo-reviews-header p {
   margin: 0; 
   font-size: 16px;
@@ -42,7 +35,6 @@
   align-items: center;
 }
 
-/* [수정] '포토리뷰 (N)' 텍스트 및 경계선 */
 .photo-review-count {
   font-size: 20px;
   color: #333;
@@ -50,16 +42,15 @@
   margin-top: 10px;
   width: 100%;
   border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 8px; /* 간격 조절 */
+  padding-bottom: 8px;
 }
 
-/* 필터 스타일 (AllReviewsPage와 동일) */
 .review-filters {
   display: flex;
   justify-content: flex-end; 
   gap: 8px;
   margin-bottom: 16px; 
-  margin-top: 10px; /* 간격 조절 */
+  margin-top: 10px;
 }
 
 .review-filters select {
@@ -70,51 +61,35 @@
   background-color: #fff;
   color: #000;
 }
-/* src/pages/Detail/PhotoReviewsPage.css 파일에 추가 */
 
-/* 1. 사진 그리드 컨테이너 설정 */
 .photo-grid-list {
   display: grid;
-  /* 화면 너비에 맞춰 3개 또는 4개 이상의 열을 자동으로 생성합니다. */
-  /* 각 사진의 최소 너비는 100px, 최대 너비는 1fr(균등)입니다. */
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 4px; /* 사진 사이의 간격 */
+  gap: 4px;
   padding: 10px 0;
 }
 
-/* 2. 개별 사진 아이템 (button 태그) */
 .photo-grid-item {
-  /* 버튼 기본 스타일 제거 */
   border: none;
   padding: 0;
-  background: #eee; /* 이미지가 로드되기 전 배경색 */
+  background: #eee;
   border-radius: 4px;
   cursor: pointer;
-  overflow: hidden; /* 이미지가 튀어나가지 않게 */
-
-  /* 🚨 중요: 1:1 정사각형 비율 유지 */
+  overflow: hidden;
   aspect-ratio: 1 / 1; 
-
-  /* (선택) 부드러운 전환 효과 */
   transition: transform 0.2s ease;
 }
 
 .photo-grid-item:hover {
-  transform: scale(1.03); /* 마우스 올리면 살짝 커짐 */
+  transform: scale(1.03);
 }
 
-/* 3. 사진 아이템 내부의 실제 img 태그 */
 .photo-grid-item img {
   width: 100%;
   height: 100%;
-  /* 이미지가 찌그러지지 않고 1:1 비율을 채우도록 설정 */
   object-fit: cover; 
 }
 
-/* --- 그리드 스타일 끝 --- */
-
-
-/* 페이지네이션 스타일 (AllReviewsPage와 동일) */
 .pagination {
   display: flex;
   justify-content: center;

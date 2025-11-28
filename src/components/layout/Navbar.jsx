@@ -11,7 +11,7 @@ export default function Navbar() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("home");
 
-  // 현재 경로가 바뀔 때마다 activeTab 갱신
+  
   useEffect(() => {
     if (location.pathname === "/mypage" || location.pathname === "/ChangeName") {
       setActiveTab("my");

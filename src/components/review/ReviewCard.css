@@ -3,7 +3,6 @@
   height: 33px;
   border-radius: 50%;
   background-color: grey;
-  /* (이미지가 있을 경우) */
   object-fit: cover;
 }
 
@@ -59,8 +58,8 @@
   line-height: normal;
 }
 .stars img {
-  display: block; /* 각 별 이미지를 블록 요소로 변경 */
-  float: left; /* 블록 요소로 만들면서 수평으로 나열하기 위해 float 사용 */
+  display: block;
+  float: left;
 }
 
 .stars {
@@ -88,7 +87,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer; /* (클릭 가능하도록 커서 추가) */
+  cursor: pointer;
 }
 
 .sub-like {
@@ -99,55 +98,46 @@
   margin-top: 1px;
   font-size: 10px;
   gap: 4px;
-  color: #979595; /* (기본 '좋아요' 숫자 색상) */
+  color: #979595;
 }
 
-/* --- (여기부터 추가/수정된 CSS) --- */
 
-/* 1. [신규] '좋아요' 활성 상태 (.active) */
 .sub-like.active img {
-  /* heart.svg 아이콘을 파란색(#4860BE)으로 변경 */
-  /* (필터 값은 SVG 색상에 따라 조절해야 할 수 있습니다) */
   filter: invert(32%) sepia(43%) saturate(1472%) hue-rotate(203deg)
     brightness(94%) contrast(87%);
 }
 
 .sub-like.active p {
-  color: #4860BE; /* (숫자 색상을 파란색으로) */
-  font-weight: 600; /* (굵게) */
+  color: #4860BE;
+  font-weight: 600;
 }
 
-/* 2. [신규] 사진 가로 스크롤 컨테이너 */
 .rc-photo-list {
   display: flex;
-  overflow-x: auto; /* (내용이 넘치면 가로 스크롤) */
+  overflow-x: auto;
   gap: 10px;
-  padding-bottom: 5px; /* (스크롤바와 여백) */
-
-  /* (스크롤바 숨기기 - 선택 사항) */
-  scrollbar-width: none; /* Firefox */
+  padding-bottom: 5px;
+  scrollbar-width: none;
 }
 
-/* (스크롤바 숨기기 - 선택 사항) */
 .rc-photo-list::-webkit-scrollbar {
-  display: none; /* Chrome, Safari */
+  display: none;
 }
 
-/* 3. [기존] 개별 사진 (CSS 코드 블록에서 가져옴) */
 .rc-photo-item {
   width: 80px;
   height: 80px;
   border-radius: 4px;
   object-fit: cover;
   border: 1px solid #eee;
-  flex-shrink: 0; /* (이미지가 찌그러지지 않도록) */
+  flex-shrink: 0;
 }
 
-/* (기존 코드) */
+
 .tags {
   display: flex;
   justify-content: flex-start;
-  flex-wrap: wrap; /* (태그가 많을 때 줄바꿈) */
+  flex-wrap: wrap;
   gap: 10px;
 }
 

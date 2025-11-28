@@ -1,20 +1,16 @@
 .er-field {
-    margin-top: 20px;
+  margin-top: 20px;
 }
 
-/* --- 고정 푸터 스타일 (기존과 동일) --- */
 .er-footer {
- 
   display: flex;
   gap: 8px;
-  
   background-color: #ffffff;
   justify-content: center;
   
 }
 
 .er-btn {
-  
   padding: 14px;
   border-radius: 20px;
   font-size: 16px;

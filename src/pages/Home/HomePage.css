@@ -1,4 +1,3 @@
-/* (기존) 전체 레이아웃 컨테이너 */
 .home-container {
 padding: 20px;
 display: flex;
@@ -10,49 +9,32 @@ font-family: 'Pretendard', sans-serif;
 padding-bottom: 120px;
 }
 
-/* --- ▼ 검색 결과 박스 CSS (여기에 추가) ▼ --- */
-
-/* 검색창과 결과 박스를 묶는 부모 (기준점) */
 .search-wrapper {
 position: relative;
 }
 
-/* 1. 검색 결과 목록 (ul) */
 .search-results {
 list-style: none;
 padding: 0;
 margin: 10px 0 0 0;
-border-top: 1px solid #eee; /* 표의 상단 선 */
+border-top: 1px solid #eee;
 background-color: #fff;
 border-radius: 8px;
 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
 }
 
-/* 2. 각 검색 결과 항목 (li) - [핵심 수정] */
+
 .result-item {
-/* 👇 [수정] Flex 대신 Grid 레이아웃 사용 */
 display: grid;
-
-/* 👇 [수정] 2개의 열(Column)을 정의합니다. */
-/* 1열(이름): 남은 공간을 모두 사용 (1fr) */
-/* 2열(상세정보): 내용은 필요한 만큼만 (auto) */
 grid-template-columns: 130px 1fr;
-
-/* 항목들 사이의 간격 */
 gap: 10px;
-
-/* 세로 중앙 정렬 */
 align-items: center;
-
-/* 가로 선 (사용자 요청) */
 border-bottom: 1px solid #eee;
-
 padding: 12px 16px;
 cursor: pointer;
 transition: background-color 0.2s;
 }
 
-/* 마지막 항목의 밑줄은 제거 */
 .result-item:last-child {
 border-bottom: none;
 }
@@ -61,43 +43,32 @@ border-bottom: none;
 background-color: #f9f9f9;
 }
 
-/* 3. 검색 결과 - 역 이름 (1열) */
 .result-name {
 font-size: 16px;
 font-weight: 400;
 color: #595757;
-
-/* 👇 [추가] 역 이름이 너무 길면 ...으로 자릅니다. */
 white-space: nowrap;
 overflow: hidden;
 text-overflow: ellipsis;
 }
 
-/* 4. 검색 결과 - 상세정보 (2열) */
 .result-details {
-/* 👇 [수정] 상세정보(호선/성별, 별점)를 세로로 쌓음 */
 display: flex;
 flex-direction: column;
-
-
-/* 상세정보가 줄바꿈되지 않도록 함 */
 white-space: nowrap;
 flex-shrink: 0;
 }
 
-/* 5. 검색 결과 - 호선/성별 */
 .result-info {
 font-size: 13px;
 color: #595757;
 }
 
-/* 6. 검색 결과 - 별점 (이모지) */
 .result-star-icons {
 font-size: 14px;
 margin-top: 2px;
 }
 
-/* 성별 색상 (기존) */
 .gender-male {
 color: #0D6EFD;
 font-weight: 500;
@@ -107,19 +78,16 @@ color: #E13A6E;
 font-weight: 500;
 }
 
-/* 검색 중... / 검색 결과 없음 (기존) */
 .result-item-info {
 padding: 12px 16px;
 color: #888;
 }
 
-/* 별점 */
 .result-star-icons {
 font-size: 15px;
 letter-spacing: 1px;
 }
 
-/* 2. (추가) 검색 섹션 */
 .search-section {
 display: flex;
 align-items: center;
@@ -127,11 +95,10 @@ position: relative;
 margin-top: -20px;
 }
 
-/* (기존) 검색창 스타일 - 너비 수정 */
 .search-input {
-flex-grow: 1; /* 검색창이 남은 공간을 다 차지하도록 */
+flex-grow: 1;
 height: 58px;
-padding: 15px 25px; /* 패딩 조정 */
+padding: 15px 25px;
 padding-right: 60px;
 font-size: 18px;
 font-weight: 400;
@@ -141,16 +108,15 @@ border-radius: 50px;
 box-sizing: border-box;
 }
 
-/* (추가) 검색 버튼 (PNG) */
 .search-button {
 background: none;
 border: none;
 cursor: pointer;
 padding: 0;
-width: 48px; /* 아이콘 크기에 맞게 조정 */
+width: 48px;
 height: 48px;
 position: absolute;
-right: 10px; /* 검색창 오른쪽에서 10px 안으로 */
+right: 10px;
 top: 50%;
 transform: translateY(-50%);
 }
@@ -161,55 +127,54 @@ height: 100%;
 }
 
 
-/* 3. (수정) 네이버 지도로 찾기 섹션 */
 .map-link-section {
 text-align: center;
-padding: 20px; /* 0px -> 20px로 수정 */
+padding: 20px;
 border-radius: 12px;
 display: flex;
-flex-direction: column; /* (추가) 위아래 정렬 */
-align-items: center;  /* (추가) 가운데 정렬 */
-gap: 15px; /* (추가) 텍스트와 버튼 사이 간격 */
+flex-direction: column;
+align-items: center;
+gap: 15px;
 margin-top: -10px;
 }
 
 .map-link-section h3 {
-margin: 0; /* (수정) 불필요한 마진 제거 */
-font-size: 14px; /* 12px -> 14px로 수정 (가독성) */
+margin: 0;
+font-size: 14px;
 color: #000;
 font-weight: 400;
 }
 
 .map-link-button {
 padding: 12px 25px;
-font-size: 15px; /* 9px -> 15px로 수정 (가독성) */
+font-size: 15px;
 color: #4860BE;
 background-color: white;
-border: 1px solid #ddd; /* (추가) 테두리 */
-border-radius: 30px; /* (추가) 둥근 모서리 */
+border: 1px solid #ddd;
+border-radius: 30px;
 cursor: pointer;
 font-weight: 600;
 }
 
-/* 4. (수정) 근처 역 추천 섹션 */
+
 .nearby-stations-list {
 list-style: none;
 padding: 0;
 margin: 0;
 display: grid;
 align-items: center;
-grid-template-columns: repeat(3, 1fr); /* (수정) 3 -> 4 (버튼 4개) */
+grid-template-columns: repeat(3, 1fr);
 gap: 15px;
 }
 
 .station-item {
 border: 1px solid #BFC8EF;
-padding: 15px 10px; /* (수정) 세로 패딩 늘림 */
+padding: 15px 10px;
 border-radius: 50px;
 text-align: center;
 background-color: #fff;
 cursor: pointer;
-box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1); /* (수정) 그림자 연하게 */
+box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
 transition: background-color 0.2s;
 }
 
@@ -219,45 +184,33 @@ background-color: #f5f7ff;
 
 
 .station-item-name {
-font-weight: 500; /* (수정) 400 -> 500 */
-font-size: 15px; /* (수정) 10px -> 15px (가독성) */
+font-weight: 500;
+font-size: 15px;
 color: #000;
 text-align: center;
 }
 
 
-/* 1. [신규] 광고 배너 (footer) 스타일 */
+
 .ad-banner {
-    /* 1. 화면에 고정 */
     position: fixed;
-    
-    /* 👇 [핵심] 너비를 100%로 설정하되, 최대 600px을 넘지 않게 제한 */
-    /* (검색창이 있는 .home-container와 너비를 공유합니다.) */
     width: 100%; 
     max-width: 500px; 
-
-    /* 2. 중앙 정렬 (뷰포트 중앙에 600px 요소를 배치하는 공식) */
     left: 50%;
     transform: translateX(-50%); 
-    
-    /* 3. 고정 위치 및 높이 설정 */
-    bottom: 90px; /* 하단 네비게이션 바 위에 위치 */
-    height: 85px; /* 고정된 높이 */
-    
+    bottom: 90px;
+    height: 85px;
     z-index: 1000;
     background-color: #f0f0f0; 
 }
-/* 2. [신규] 배너 안의 이미지 스타일 */
+
 .ad-banner .prdp-ad-image {
-    /* 부모(.ad-banner)의 너비와 높이 100%를 꽉 채웁니다. */
     width: 100%; 
     height: 100%; 
     display: block;
     object-fit: cover; 
 }
 
-/* (주의: .home-container의 padding-bottom은 145px로 유지되어야 합니다.) */
 .home-container {
-    /* ... */
     padding-bottom: 145px !important; 
 }
