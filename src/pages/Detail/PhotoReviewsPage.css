@@ -132,8 +132,12 @@
 .prdp-ad-container {
   display: flex;
   align-items: center;
-  width: 500px;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
 }
 .prdp-ad-container .prdp-ad-banner {
   width: 100%;
+  height: auto;
+  object-fit: cover;
 }
